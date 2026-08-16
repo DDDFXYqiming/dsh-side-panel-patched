@@ -1,0 +1,5 @@
+- insert:
+    - id: side-panel
+      name: '@dsh-external/dsh-side-panel'
+      # [spec-audit 2026-08-14] config 默认值已由插件 Schemastery Config 提供（单一来源）；
+      # 需要覆盖时在 profile 层按 id 覆盖 config 即可。
