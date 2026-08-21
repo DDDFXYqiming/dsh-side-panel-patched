@@ -1,3 +1,5 @@
+简体中文 | [English](README.en.md)
+
 # dsh-side-panel-patched
 
 DSH Web 右侧工作区面板（文件浏览器 / Git 审查 / 终端）的本地增强版（fork 维护）。
