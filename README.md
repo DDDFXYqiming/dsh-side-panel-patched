@@ -42,4 +42,4 @@ dsh plugin --profile web add <本目录>
 
 ## License
 
-BSD-3-Clause（保留上游版权声明，见 LICENSE）
+MIT（详见 LICENSE；上游 [ccq1/dsh-side-panel](https://github.com/ccq1/dsh-side-panel) 原为 BSD-3-Clause，已在 LICENSE 中保留其归属）
