@@ -892,6 +892,10 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
     else review.textContent = response.ok ? '无数据' : response.error
   }
   let terminalId: string | undefined
+  // [PATCH 2026-08-27] 终端归属会话。宿主按 owner=sessionId 校验所有
+  // terminal-* 动作；轮询/输入/缩放/关闭必须绑定打开时的会话，
+  // 否则会话切换后 terminal-read 被宿主拒绝、60ms 轮询空转。
+  let terminalSessionId: string | undefined
   let xterm: XTerminal | undefined
   let terminalPoll: number | undefined
   const terminalTheme = (): { background: string; foreground: string; selectionBackground: string; selectionInactiveBackground: string } => {
@@ -915,8 +919,20 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
     }
   })
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme', 'style'] })
+  const closeTerminal = async (): Promise<void> => {
+    const sid = terminalSessionId
+    const tid = terminalId
+    terminalSessionId = undefined
+    terminalId = undefined
+    if (terminalPoll !== undefined) { window.clearInterval(terminalPoll); terminalPoll = undefined }
+    if (sid !== undefined && tid !== undefined) {
+      try { await postApi({ sessionId: sid, action: 'terminal-close', terminalId: tid }) } catch { /* 关闭失败不影响面板 */ }
+    }
+  }
   const pollTerminal = async (): Promise<void> => {
-    const sessionId = currentSession(); if (sessionId === undefined || terminalId === undefined) return
+    // 会话已切换：终端归属旧会话，先关闭再让 ensureTerminal 为新会话重开。
+    if (currentSession() !== terminalSessionId) { await closeTerminal(); return }
+    const sessionId = terminalSessionId; if (sessionId === undefined || terminalId === undefined) return
     const response = await postApi({ sessionId, action: 'terminal-read', terminalId })
     if (response.ok && 'pty' in response) { if (response.pty.output !== '') xterm?.write(response.pty.output); if (response.pty.exited && terminalPoll !== undefined) window.clearInterval(terminalPoll) }
   }
@@ -928,7 +944,8 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
     const response = await postApi({ sessionId, action: 'terminal-open', cols: xterm.cols, rows: xterm.rows })
     if (!response.ok || !('pty' in response)) { xterm.write(`\r\n${response.ok ? '无法启动终端' : response.error}\r\n`); return }
     terminalId = response.pty.id
-    xterm.onData(data => { if (terminalId !== undefined) void postApi({ sessionId, action: 'terminal-input', terminalId, data }) })
+    terminalSessionId = sessionId
+    xterm.onData(data => { if (terminalId !== undefined && terminalSessionId !== undefined) void postApi({ sessionId: terminalSessionId, action: 'terminal-input', terminalId, data }) })
     terminalPoll = window.setInterval(() => void pollTerminal(), 60)
     await pollTerminal()
   }
@@ -937,7 +954,7 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
   const fitTerminal = (): void => {
     if (terminal.hidden || xterm === undefined || fitAddon === undefined) return
     fitAddon.fit()
-    const sessionId = currentSession()
+    const sessionId = terminalSessionId
     if (sessionId !== undefined && terminalId !== undefined) void postApi({ sessionId, action: 'terminal-resize', terminalId, cols: xterm.cols, rows: xterm.rows })
   }
   const terminalResizeObserver = new ResizeObserver(() => {
@@ -1010,7 +1027,7 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
   close.onclick = closePanel
   const key = (event: KeyboardEvent): void => { if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'e') { event.preventDefault(); root.hidden ? open() : closePanel() } }
   window.addEventListener('keydown', key)
-  return { root, openFile, dispose() { window.removeEventListener('keydown', key); document.removeEventListener('pointerdown', dismissMenus); stopFeatureLabels(true); if (searchTimer !== undefined) window.clearTimeout(searchTimer); if (terminalPoll !== undefined) window.clearInterval(terminalPoll); if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame); terminalResizeObserver.disconnect(); themeObserver.disconnect(); for (const [host, editor] of activeEditors) { if (root.contains(host)) { editor.view.destroy(); activeEditors.delete(host) } } const sessionId = currentSession(); if (sessionId !== undefined && terminalId !== undefined) void postApi({ sessionId, action: 'terminal-close', terminalId }); xterm?.dispose(); tabObserver.disconnect(); if (browserTabWhale !== null) removeFishLogo(browserTabWhale); browserTab?.remove(); contextMenu.remove(); addMenu.remove(); restoreConversationLayout(); root.remove(); style.remove() } }
+  return { root, openFile, dispose() { window.removeEventListener('keydown', key); document.removeEventListener('pointerdown', dismissMenus); stopFeatureLabels(true); if (searchTimer !== undefined) window.clearTimeout(searchTimer); if (terminalPoll !== undefined) window.clearInterval(terminalPoll); if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame); terminalResizeObserver.disconnect(); themeObserver.disconnect(); for (const [host, editor] of activeEditors) { if (root.contains(host)) { editor.view.destroy(); activeEditors.delete(host) } } const sessionId = terminalSessionId; if (sessionId !== undefined && terminalId !== undefined) void postApi({ sessionId, action: 'terminal-close', terminalId }); xterm?.dispose(); tabObserver.disconnect(); if (browserTabWhale !== null) removeFishLogo(browserTabWhale); browserTab?.remove(); contextMenu.remove(); addMenu.remove(); restoreConversationLayout(); root.remove(); style.remove() } }
 }
 
 export function apply(ctx: ClientContext): void {

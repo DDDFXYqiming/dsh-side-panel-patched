@@ -38,11 +38,14 @@
     "lib/types/invariant.d.ts",
     "lib/types/protocol.d.ts",
     "lib/types/client/index.d.ts",
+    "src/host",
+    "scripts/build-host.mjs",
     "cordis.patch.yml"
   ],
   "scripts": {
+    "build": "node scripts/build-host.mjs",
     "check": "node -e \"const fs=require('fs');for(const f of ['lib/index.js','lib/client.js']){if(!fs.existsSync(f)){console.error('missing '+f);process.exit(1)}}console.log('build artifacts OK')\"",
-    "prepare": "npm run check"
+    "prepare": "npm run build && npm run check"
   },
   "publishConfig": {
     "access": "public"
