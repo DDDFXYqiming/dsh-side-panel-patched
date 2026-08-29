@@ -20,6 +20,12 @@ import { FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
 import { FILE_BROWSER_ROUTE, type ApiResponse, type BrowserEntry, type Preview, type ReviewMode } from '../protocol.ts'
 
 interface ClientContext {
+  sessions: {
+    list: {
+      getSnapshot(): { current?: string }
+      subscribe(listener: () => void): () => void
+    }
+  }
   workspaces: {
     openPath(path: string): Promise<void>
   }
@@ -110,8 +116,6 @@ body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-tagName{color:#7ee
 body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-attributeName,body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-labelName{color:#ffa657}
 body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-invalid{color:#ffa198;text-decoration:underline wavy currentColor}
 body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-heading{color:#a5d6ff}
-body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-emphasis{font-style:italic}
-body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-strong{font-weight:600}
 body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-inserted{color:#aff5b4}
 body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-deleted{color:#ffa198}
 /* mermaid diagram containers */
@@ -120,20 +124,18 @@ body[data-ds-dark-theme] #dsh-file-browser .dfb-markdown .tok-deleted{color:#ffa
 #dsh-file-browser .dfb-mermaid-loading{color:var(--dfb-text-3);font:12px/1.6 ui-monospace,monospace;opacity:.8}
 #dsh-file-browser .dfb-mermaid-note{margin-bottom:8px;color:var(--dfb-text-3);font:12px/1.6 ui-monospace,monospace}
 #dsh-file-browser .dfb-mermaid-fallback{margin:0;white-space:pre;font:12px/1.6 ui-monospace,monospace;color:var(--dfb-text-2)}
-`
+`;
 
 const css = `
-#dsh-file-browser{position:relative;z-index:1;grid-column:2;grid-row:2;min-width:0;width:100%;height:100%;overflow:hidden;display:grid;grid-template-rows:52px minmax(0,1fr);background:#1b1b1c;color:var(--dsw-alias-content-primary,#eee);border-left:1px solid var(--dsw-alias-stroke-default,#3a3a3a)}
-#dsh-file-browser[hidden]{display:none}.dfb-head{display:flex;align-items:center;gap:4px;padding:0 10px;border-bottom:1px solid #ffffff18}.dfb-panel-tabs{display:flex;min-width:0;flex:1;gap:4px;overflow:auto}.dfb-panel-tab{border:0;background:transparent;color:#aaa;padding:9px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}.dfb-panel-tab:hover{background:#ffffff0b}.dfb-panel-tab[data-active="true"]{background:#2a2a2b;color:#fff}.dfb-tools{display:flex;gap:3px}.dfb-tool,.dfb-close{width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:inherit;font-size:18px;cursor:pointer}.dfb-tool:hover,.dfb-close:hover{background:#ffffff12}
-.dfb-tab{margin-left:auto!important;overflow:visible}.dfb-tab-stage{position:relative;display:inline-grid;min-width:2em;place-items:center}.dfb-tab-label{display:inline-block;will-change:transform,opacity}.dfb-tab-label[data-motion="out"]{animation:dfb-tab-label-out 180ms ease-in forwards}.dfb-tab-label[data-motion="in"]{animation:dfb-tab-label-in 260ms ease-out forwards}.dfb-tab-whale{position:absolute;z-index:3;left:50%;bottom:-5px;width:23px;height:auto;color:#4c8dff;opacity:0;pointer-events:none;filter:drop-shadow(0 3px 4px #276ce766);transform-origin:50% 70%}.dfb-tab-splash{position:absolute;z-index:2;left:50%;bottom:-4px;width:38px;height:12px;opacity:0;pointer-events:none;transform:translateX(-50%)}.dfb-tab-splash::before,.dfb-tab-splash::after{content:"";position:absolute;left:50%;bottom:1px;border:1.5px solid #4c8dff;border-bottom:0;border-radius:50% 50% 0 0;transform:translateX(-50%)}.dfb-tab-splash::before{width:12px;height:5px}.dfb-tab-splash::after{width:25px;height:8px;opacity:.65}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-whale{animation:dfb-whale-jump 920ms cubic-bezier(.2,.72,.25,1) both}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash{animation:dfb-water-splash 620ms ease-out both}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>i,.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>b{position:absolute;bottom:2px;width:3px;height:3px;border-radius:50%;background:#6ba2ff;content:""}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>i{left:7px;animation:dfb-droplet-left 520ms ease-out both}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>b{right:7px;animation:dfb-droplet-right 570ms ease-out both}@keyframes dfb-tab-label-out{to{transform:translateY(-45%);opacity:0}}@keyframes dfb-tab-label-in{from{transform:translateY(45%);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes dfb-whale-jump{0%{opacity:0;transform:translate(-12px,12px) rotate(-24deg) scale(.7)}8%{opacity:1}10%{transform:translate(-10px,-6px) rotate(-54deg) scale(.82)}25%{transform:translate(-7px,-28px) rotate(-99deg) scale(1)}40%{transform:translate(-4px,-38px) rotate(-144deg) scale(1.09)}50%{opacity:1;transform:translate(-2px,-40px) rotate(-174deg) scale(1.1)}60%{transform:translate(1px,-38px) rotate(-204deg) scale(1.08)}75%{transform:translate(5px,-28px) rotate(-249deg) scale(1)}90%{opacity:1;transform:translate(9px,-6px) rotate(-294deg) scale(.84)}100%{opacity:0;transform:translate(12px,12px) rotate(-324deg) scale(.7)}}@keyframes dfb-water-splash{0%,5%{opacity:0;transform:translateX(-50%) scale(.3)}14%{opacity:1;transform:translateX(-50%) scale(.8)}32%{opacity:0;transform:translateX(-50%) scaleX(1.35) scaleY(.65)}76%{opacity:0;transform:translate(7px) scale(.25)}88%{opacity:1;transform:translate(7px) scale(1.1)}100%{opacity:0;transform:translate(7px) scaleX(1.65) scaleY(.65)}}@keyframes dfb-droplet-left{0%,6%{opacity:0;transform:translate(8px,4px)}16%{opacity:1}31%{opacity:0;transform:translate(-7px,-12px)}78%{opacity:0;transform:translate(14px,3px)}88%{opacity:1}100%{opacity:0;transform:translate(5px,-16px)}}@keyframes dfb-droplet-right{0%,6%{opacity:0;transform:translate(-8px,4px)}16%{opacity:1}33%{opacity:0;transform:translate(8px,-15px)}78%{opacity:0;transform:translate(9px,3px)}88%{opacity:1}100%{opacity:0;transform:translate(20px,-13px)}}@media(prefers-reduced-motion:reduce){.dfb-tab-label[data-motion="out"],.dfb-tab-label[data-motion="in"]{animation-duration:1ms}.dfb-tab-whale,.dfb-tab-splash{display:none}}.dfb-tab[aria-selected="true"]{color:var(--dsw-alias-state-business-primary,#3978ff)!important}.dfb-tab::after{content:"";position:absolute;right:0;bottom:0;left:0;height:3px;background:transparent}.dfb-tab[aria-selected="true"]::after{background:var(--dsw-alias-state-business-primary,#3978ff)}
+#dsh-file-browser{position:fixed;z-index:1000;top:0;right:0;bottom:0;width:520px;min-width:0;overflow:hidden;display:grid;grid-template-rows:44px minmax(0,1fr);background:var(--dsw-alias-bg-base,#1b1b1c);color:var(--dsw-alias-content-primary,#eee);box-shadow:-8px 0 24px #00000018}
+#dsh-file-browser[hidden]{display:none}.dfb-head{display:flex;align-items:center;gap:4px;padding:12px 10px 0}.dfb-panel-tabs{display:flex;min-width:0;flex:1;gap:4px;overflow:auto}.dfb-panel-tab{border:0;background:transparent;color:#aaa;padding:9px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}.dfb-panel-tab:hover{background:#ffffff0b}.dfb-panel-tab[data-active="true"]{background:#2a2a2b;color:#fff}.dfb-tools{display:flex;gap:3px}.dfb-tool,.dfb-close{width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:inherit;font-size:18px;cursor:pointer}.dfb-tool:hover,.dfb-close:hover{background:#ffffff12}
+.dfb-tab{margin-left:0!important;overflow:visible}.dfb-tab-stage{position:relative;display:inline-grid;min-width:2em;place-items:center}.dfb-tab-label{display:inline-block;will-change:transform,opacity}.dfb-tab-label[data-motion="out"]{animation:dfb-tab-label-out 180ms ease-in forwards}.dfb-tab-label[data-motion="in"]{animation:dfb-tab-label-in 260ms ease-out forwards}.dfb-tab-whale{position:absolute;z-index:3;left:50%;bottom:-5px;width:23px;height:auto;color:#4c8dff;opacity:0;pointer-events:none;filter:drop-shadow(0 3px 4px #276ce766);transform-origin:50% 70%}.dfb-tab-splash{position:absolute;z-index:2;left:50%;bottom:-4px;width:38px;height:12px;opacity:0;pointer-events:none;transform:translateX(-50%)}.dfb-tab-splash::before,.dfb-tab-splash::after{content:"";position:absolute;left:50%;bottom:1px;border:1.5px solid #4c8dff;border-bottom:0;border-radius:50% 50% 0 0;transform:translateX(-50%)}.dfb-tab-splash::before{width:12px;height:5px}.dfb-tab-splash::after{width:25px;height:8px;opacity:.65}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-whale{animation:dfb-whale-jump 920ms cubic-bezier(.2,.72,.25,1) both}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash{animation:dfb-water-splash 620ms ease-out both}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>i,.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>b{position:absolute;bottom:2px;width:3px;height:3px;border-radius:50%;background:#6ba2ff;content:""}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>i{left:7px;animation:dfb-droplet-left 520ms ease-out both}.dfb-tab-stage[data-celebrate="true"] .dfb-tab-splash>b{right:7px;animation:dfb-droplet-right 570ms ease-out both}@keyframes dfb-tab-label-out{to{transform:translateY(-45%);opacity:0}}@keyframes dfb-tab-label-in{from{transform:translateY(45%);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes dfb-whale-jump{0%{opacity:0;transform:translate(-12px,12px) rotate(-24deg) scale(.7)}8%{opacity:1}10%{transform:translate(-10px,-6px) rotate(-54deg) scale(.82)}25%{transform:translate(-7px,-28px) rotate(-99deg) scale(1)}40%{transform:translate(-4px,-38px) rotate(-144deg) scale(1.09)}50%{opacity:1;transform:translate(-2px,-40px) rotate(-174deg) scale(1.1)}60%{transform:translate(1px,-38px) rotate(-204deg) scale(1.08)}75%{transform:translate(5px,-28px) rotate(-249deg) scale(1)}90%{opacity:1;transform:translate(9px,-6px) rotate(-294deg) scale(.84)}100%{opacity:0;transform:translate(12px,12px) rotate(-324deg) scale(.7)}}@keyframes dfb-water-splash{0%,5%{opacity:0;transform:translateX(-50%) scale(.3)}14%{opacity:1;transform:translateX(-50%) scale(.8)}32%{opacity:0;transform:translateX(-50%) scaleX(1.35) scaleY(.65)}76%{opacity:0;transform:translate(7px) scale(.25)}88%{opacity:1;transform:translate(7px) scale(1.1)}100%{opacity:0;transform:translate(7px) scaleX(1.65) scaleY(.65)}}@keyframes dfb-droplet-left{0%,6%{opacity:0;transform:translate(8px,4px)}16%{opacity:1}31%{opacity:0;transform:translate(-7px,-12px)}78%{opacity:0;transform:translate(14px,3px)}88%{opacity:1}100%{opacity:0;transform:translate(5px,-16px)}}@keyframes dfb-droplet-right{0%,6%{opacity:0;transform:translate(-8px,4px)}16%{opacity:1}33%{opacity:0;transform:translate(8px,-15px)}78%{opacity:0;transform:translate(9px,3px)}88%{opacity:1}100%{opacity:0;transform:translate(20px,-13px)}}@media(prefers-reduced-motion:reduce){.dfb-tab-label[data-motion="out"],.dfb-tab-label[data-motion="in"]{animation-duration:1ms}.dfb-tab-whale,.dfb-tab-splash{display:none}}.dfb-tab[aria-selected="true"]{color:var(--dsw-alias-state-business-primary,#3978ff)!important}.dfb-tab::after{content:"";position:absolute;right:0;bottom:0;left:0;height:3px;background:transparent}.dfb-tab[aria-selected="true"]::after{background:var(--dsw-alias-state-business-primary,#3978ff)}
 .dfb-whale-flight{position:fixed;z-index:10020;width:80px;height:64px;overflow:visible;pointer-events:none}.dfb-whale-flight .dfb-tab-whale{display:block;animation:dfb-whale-jump 1080ms linear both}.dfb-whale-flight .dfb-tab-splash{display:block;animation:dfb-water-splash 1080ms linear both}.dfb-whale-flight .dfb-tab-splash>i,.dfb-whale-flight .dfb-tab-splash>b{position:absolute;bottom:2px;width:3px;height:3px;border-radius:50%;background:#6ba2ff}.dfb-whale-flight .dfb-tab-splash>i{left:7px;animation:dfb-droplet-left 1080ms linear both}.dfb-whale-flight .dfb-tab-splash>b{right:7px;animation:dfb-droplet-right 1080ms linear both}
 .dfb-menu{position:fixed;z-index:10000;min-width:220px;padding:6px;border:1px solid #ffffff1c;border-radius:10px;background:#303030;color:#eee;box-shadow:0 12px 32px #0008}.dfb-menu[hidden]{display:none}.dfb-menu button{display:flex;width:100%;gap:10px;padding:9px 11px;border:0;border-radius:6px;background:transparent;color:inherit;text-align:left}.dfb-menu button:hover{background:#ffffff12}.dfb-menu-sep{height:1px;margin:5px;background:#ffffff16}.dfb-submenu{position:absolute;right:100%;top:42px}.dfb-disclosure{display:inline-grid;width:12px;flex:none;place-items:center;color:#d8a629;font-size:10px}.dfb-file-icon{display:inline-grid;width:17px;height:17px;flex:none;place-items:center}.dfb-file-icon svg{display:block;width:16px;height:16px}.dfb-file-badge{font:700 9px/16px ui-monospace,monospace;text-align:center;border-radius:3px}.dfb-icon-js{background:#e5c84b;color:#202020}.dfb-icon-ts{background:#3178c6;color:white}.dfb-icon-json{color:#d5b64b;font:700 13px/16px ui-monospace,monospace}.dfb-icon-md{color:#71a7e8;font:700 12px/16px ui-monospace,monospace}.dfb-icon-yaml{color:#db6161;font:700 11px/16px ui-monospace,monospace}.dfb-icon-shell{background:#529b55;color:white}.dfb-icon-config{color:#aeb4bd;font-size:15px}.dfb-icon-generic{color:#aeb4bd}
-.dfb-resizer{position:absolute;z-index:2;inset:0 auto 0 -6px;width:12px;cursor:col-resize;touch-action:none}.dfb-resizer::after{content:"";position:absolute;inset:0 auto 0 5px;width:1px;background:transparent}.dfb-resizer:hover::after,.dfb-resizer[data-dragging="true"]::after{background:var(--dsw-alias-state-business-primary,#6b8cff)}
-.dfb-content{min-height:0;overflow:hidden}.dfb-view{height:100%;min-height:0}.dfb-view[hidden]{display:none}.dfb-files{display:grid;grid-template-rows:44px minmax(0,1fr);min-height:0;overflow:hidden}.dfb-files[hidden]{display:none}.dfb-file-toolbar{display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid #ffffff18}.dfb-path{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-body{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 220px;height:100%;overflow:hidden}.dfb-body[data-tree="false"]{grid-template-columns:minmax(0,1fr) 0}.dfb-body[data-tree="false"] .dfb-tree-pane{display:none}.dfb-tree-pane{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;border-left:1px solid #ffffff18}.dfb-filter{flex:none;margin:10px;padding:9px 11px;border:1px solid #ffffff1f;border-radius:8px;background:#232324;color:inherit;outline:none}.dfb-tree{flex:1;min-height:0;overflow:auto;padding:2px 8px 8px}.dfb-preview{position:relative;min-width:0;min-height:0;overflow:auto;padding:0}.dfb-preview-message{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center}.dfb-preview-card{max-width:420px;color:#aaa}.dfb-preview-icon{margin-bottom:12px;color:#d6a936;font-size:30px}.dfb-preview-title{margin-bottom:7px;color:#eee;font-size:16px;font-weight:600}.dfb-preview-detail{line-height:1.6;color:#999}.dfb-row{display:flex;align-items:center;width:100%;gap:6px;border:0;background:transparent;color:inherit;padding:5px 7px;border-radius:6px;text-align:left;cursor:pointer}.dfb-row:hover{background:#ffffff10}.dfb-row span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-children{padding-left:14px}.dfb-code{margin:0;white-space:pre;tab-size:2;font:13px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace}.dfb-editor{height:100%}.dfb-editor .cm-editor{height:100%;background:#1b1b1c;color:#f1f1f1;font:14px/1.72 ui-monospace,SFMono-Regular,Consolas,monospace}.dfb-editor .cm-scroller{overflow:auto}.dfb-editor .cm-content{caret-color:#fff}.dfb-editor .cm-gutters{background:#1b1b1c;color:#9a9a9a;border:0}.dfb-editor .cm-activeLine,.dfb-editor .cm-activeLineGutter{background:#ffffff0b}.dfb-editor .cm-selectionBackground{background:#315f9f!important}.dfb-image{display:block;max-width:100%;max-height:calc(100vh - 100px);margin:auto}.dfb-empty{color:var(--dsw-alias-content-secondary,#aaa);display:grid;place-items:center;height:100%;text-align:center}.dfb-markdown{box-sizing:border-box;line-height:1.65;padding:18px;color:#ededed}.dfb-markdown pre{overflow:auto;padding:12px;background:#0003;border-radius:8px}.dfb-markdown img{max-width:100%}.dfb-console{box-sizing:border-box;width:100%;height:100%;padding:0;background:#151515;overflow:hidden}.dfb-console .xterm{box-sizing:border-box;width:100%;height:100%;padding:12px;position:relative;overflow:hidden;cursor:text;user-select:none}.dfb-console .xterm:focus,.dfb-console .xterm.focus{outline:none}.dfb-console .xterm-helpers{position:absolute;top:0;z-index:5}.dfb-console .xterm-helper-textarea{position:absolute;left:-9999em;top:0;width:0;height:0;margin:0;padding:0;border:0;opacity:0;overflow:hidden;resize:none;white-space:nowrap;z-index:-5}.dfb-console .composition-view{display:none;position:absolute;background:#000;color:#fff;white-space:nowrap;z-index:1}.dfb-console .composition-view.active{display:block}.dfb-console .xterm-viewport{position:absolute;inset:12px;overflow-y:scroll;overflow-x:hidden;cursor:default;background:#151515}.dfb-console .xterm-screen{position:relative;max-width:100%;overflow:hidden}.dfb-console .xterm-screen canvas{position:absolute;left:0;top:0}.dfb-console .xterm-char-measure-element{display:inline-block;visibility:hidden;position:absolute;left:-9999em;top:0;line-height:normal}.dfb-console .xterm-accessibility:not(.debug),.dfb-console .xterm-message{position:absolute;inset:0;z-index:10;color:transparent;pointer-events:none}.dfb-console .live-region{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}.dfb-review{box-sizing:border-box;margin:0;height:100%;overflow:auto;white-space:pre-wrap;padding:16px;color:#ededed;font:13px/1.65 ui-monospace,monospace}.dfb-side-list{box-sizing:border-box;padding:12px}.dfb-side-row{display:block;width:100%;padding:10px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left}.dfb-side-row:hover{background:#ffffff10}@media(max-width:760px){.dfb-body{grid-template-columns:minmax(0,1fr) 170px}}`
-
+.dfb-resizer{position:absolute;z-index:2;inset:0 auto 0 -6px;width:12px;cursor:col-resize;touch-action:none}.dfb-resizer::after{content:"";position:absolute;inset:0 auto 0 5px;width:2px;background:transparent;clip-path:polygon(50% 0,0% 50%,50% 100%,100% 50%);transition:background .15s ease}.dfb-resizer:hover::after,.dfb-resizer[data-dragging="true"]::after{background:rgba(128,128,128,.3)}
+.dfb-content{min-height:0;overflow:hidden}.dfb-view{height:100%;min-height:0}.dfb-view[hidden]{display:none}.dfb-files{display:grid;grid-template-rows:30px minmax(0,1fr);min-height:0;overflow:hidden}.dfb-files[hidden]{display:none}.dfb-file-toolbar{display:flex;align-items:center;gap:6px;padding:4px 10px 0;border-bottom:1px solid var(--dsw-alias-border-l2);box-shadow:0 1px 3px #00000014}.dfb-path{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-body{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 220px;height:100%;overflow:hidden}.dfb-body[data-tree="false"]{grid-template-columns:minmax(0,1fr) 0}.dfb-body[data-tree="false"] .dfb-tree-pane{display:none}.dfb-tree-pane{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;border-left:1px solid #ffffff18}.dfb-filter{flex:none;margin:10px;padding:9px 11px;border:1px solid #ffffff1f;border-radius:8px;background:#232324;color:inherit;outline:none}.dfb-tree{flex:1;min-height:0;overflow:auto;padding:2px 8px 8px}.dfb-preview{position:relative;min-width:0;min-height:0;overflow:auto;padding:0}.dfb-preview-message{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center}.dfb-preview-card{max-width:420px;color:#aaa}.dfb-preview-icon{margin-bottom:12px;color:#d6a936;font-size:30px}.dfb-preview-title{margin-bottom:7px;color:#eee;font-size:16px;font-weight:600}.dfb-preview-detail{line-height:1.6;color:#999}.dfb-row{display:flex;align-items:center;width:100%;gap:6px;border:0;background:transparent;color:inherit;padding:5px 7px;border-radius:6px;text-align:left;cursor:pointer}.dfb-row:hover{background:#ffffff10}.dfb-row span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-children{padding-left:14px}.dfb-code{margin:0;white-space:pre;tab-size:2;font:13px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace}.dfb-editor{height:100%}.dfb-editor .cm-editor{height:100%;background:#1b1b1c;color:#f1f1f1;font:14px/1.72 ui-monospace,SFMono-Regular,Consolas,monospace}.dfb-editor .cm-scroller{overflow:auto}.dfb-editor .cm-content{caret-color:#fff}.dfb-editor .cm-gutters{background:#1b1b1c;color:#9a9a9a;border:0}.dfb-editor .cm-activeLine,.dfb-editor .cm-activeLineGutter{background:#ffffff0b}.dfb-editor .cm-selectionBackground{background:#315f9f!important}.dfb-image{display:block;max-width:100%;max-height:calc(100vh - 100px);margin:auto}.dfb-empty{color:var(--dsw-alias-content-secondary,#aaa);display:grid;place-items:center;height:100%;text-align:center}.dfb-markdown{box-sizing:border-box;line-height:1.65;padding:18px;color:#ededed}.dfb-markdown pre{overflow:auto;padding:12px;background:#0003;border-radius:8px}.dfb-markdown img{max-width:100%}.dfb-console{box-sizing:border-box;width:100%;height:100%;padding:0;background:#151515;overflow:hidden}.dfb-console .xterm{box-sizing:border-box;width:100%;height:100%;padding:12px;position:relative;overflow:hidden;cursor:text;user-select:none}.dfb-console .xterm:focus,.dfb-console .xterm.focus{outline:none}.dfb-console .xterm-helpers{position:absolute;top:0;z-index:5}.dfb-console .xterm-helper-textarea{position:absolute;left:-9999em;top:0;width:0;height:0;margin:0;padding:0;border:0;opacity:0;overflow:hidden;resize:none;white-space:nowrap;z-index:-5}.dfb-console .composition-view{display:none;position:absolute;background:#000;color:#fff;white-space:nowrap;z-index:1}.dfb-console .composition-view.active{display:block}.dfb-console .xterm-viewport{position:absolute;inset:12px;overflow-y:scroll;overflow-x:hidden;cursor:default;background:#151515}.dfb-console .xterm-screen{position:relative;max-width:100%;overflow:hidden}.dfb-console .xterm-screen canvas{position:absolute;left:0;top:0}.dfb-console .xterm-char-measure-element{display:inline-block;visibility:hidden;position:absolute;left:-9999em;top:0;line-height:normal}.dfb-console .xterm-accessibility:not(.debug),.dfb-console .xterm-message{position:absolute;inset:0;z-index:10;color:transparent;pointer-events:none}.dfb-console .live-region{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}.dfb-review{box-sizing:border-box;margin:0;height:100%;overflow:auto;white-space:pre-wrap;padding:16px;color:#ededed;font:13px/1.65 ui-monospace,monospace}.dfb-side-list{box-sizing:border-box;padding:12px}.dfb-side-row{display:block;width:100%;padding:10px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left}.dfb-side-row:hover{background:#ffffff10}@media(max-width:760px){.dfb-body{grid-template-columns:minmax(0,1fr) 170px}}`;
 const reviewCss = `
-.dfb-review{box-sizing:border-box;height:100%;overflow:auto;padding:14px;background:#171718;color:#ddd;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.dfb-review-summary{margin-bottom:14px;border:1px solid #ffffff16;border-radius:8px;overflow:hidden;background:#1d1d1e}.dfb-review-summary-title,.dfb-diff-title{display:flex;width:100%;align-items:center;gap:8px;box-sizing:border-box;padding:9px 12px;border:0;background:#242425;color:#f2f2f2;font:inherit;font-weight:600;text-align:left}.dfb-review-summary-title{cursor:pointer}.dfb-review-summary-title:hover,.dfb-diff-title:hover{background:#2a2a2b}.dfb-review-disclosure{width:12px;color:#aaa}.dfb-status-row{display:flex;width:100%;box-sizing:border-box;align-items:center;gap:9px;padding:6px 12px;border:0;border-top:1px solid #ffffff0d;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}.dfb-status-row:hover{background:#ffffff0a}.dfb-status-code{display:inline-grid;width:22px;height:20px;flex:none;place-items:center;border-radius:4px;background:#876b2533;color:#e5bd55;font-weight:700}.dfb-status-code[data-kind="new"]{background:#2d754733;color:#63d38d}.dfb-status-code[data-kind="deleted"]{background:#9a3d3d33;color:#f07878}.dfb-status-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-diff-file{margin-bottom:10px;border:1px solid #ffffff16;border-radius:7px;overflow:auto;background:#1b1b1c;scroll-margin-top:58px}.dfb-diff-file[data-selected="true"]{border-color:#4f80d8;box-shadow:0 0 0 1px #4f80d844}.dfb-diff-title{position:sticky;left:0}.dfb-diff-toggle{display:flex;min-width:0;flex:1;align-items:center;gap:8px;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer}.dfb-diff-toggle span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-file-add{margin-left:auto;color:#63d38d}.dfb-file-del{color:#f07878}.dfb-git-action{width:26px;height:26px;border:1px solid #ffffff16;border-radius:50%;background:transparent;color:#aaa;font-size:17px;cursor:pointer}.dfb-git-action:hover{background:#ffffff12;color:#fff}.dfb-diff-body[hidden],.dfb-review-summary-body[hidden]{display:none}.dfb-diff-row{display:grid;grid-template-columns:34px 34px minmax(max-content,1fr);width:max-content;min-width:100%}.dfb-diff-row>span{min-height:21px}.dfb-diff-num{box-sizing:border-box;padding:1px 5px;border-right:1px solid #ffffff10;background:#151516;color:#74747c;text-align:right;user-select:none}.dfb-diff-code{padding:1px 9px;white-space:pre}.dfb-diff-gutter-head{position:sticky;top:0;z-index:1;border-bottom:1px solid #ffffff12;background:#202021;color:#8d8d95}.dfb-diff-gutter-head .dfb-diff-num{background:#202021;color:#999;text-align:center;font-weight:600}.dfb-diff-gutter-head .dfb-diff-code{background:#202021;color:#777}.dfb-diff-add{background:#234b2c66}.dfb-diff-add .dfb-diff-code{color:#b7e7c1}.dfb-diff-del{background:#572b2b66}.dfb-diff-del .dfb-diff-code{color:#f0b4b4}.dfb-diff-hunk{background:#263957}.dfb-diff-hunk .dfb-diff-code{color:#a9c9f4}.dfb-diff-meta .dfb-diff-code{color:#85858d}.dfb-review-empty{display:grid;height:calc(100% - 50px);place-items:center;padding:32px;color:#999;text-align:center;white-space:normal}.dfb-review-toolbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:10px;margin:-14px -14px 14px;padding:10px 14px;border-bottom:1px solid #ffffff14;background:#1b1b1cf2;backdrop-filter:blur(8px)}.dfb-review-mode-wrap{position:relative}.dfb-review-mode{display:flex;min-width:150px;align-items:center;justify-content:space-between;gap:14px;padding:7px 10px;border:1px solid #ffffff12;border-radius:7px;background:#282829;color:#eee;font:inherit;font-weight:600;cursor:pointer}.dfb-review-mode:hover,.dfb-review-mode[aria-expanded="true"]{border-color:#ffffff25;background:#303031}.dfb-review-mode-arrow{color:#aaa;font-size:10px}.dfb-review-mode-menu{position:absolute;z-index:8;top:calc(100% + 5px);left:0;min-width:190px;padding:5px;border:1px solid #ffffff1c;border-radius:9px;background:#2b2b2c;box-shadow:0 10px 26px #0008}.dfb-review-mode-menu[hidden]{display:none}.dfb-review-mode-item{display:flex;width:100%;align-items:center;justify-content:space-between;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:#ddd;font:inherit;text-align:left;cursor:pointer}.dfb-review-mode-item:hover{background:#ffffff10;color:#fff}.dfb-review-mode-item[data-selected="true"]{background:#3b3b3d;color:#fff}.dfb-review-mode-check{width:14px;color:#6d9cff}.dfb-review-count{color:#888}.dfb-review-add{margin-left:auto;color:#63d38d}.dfb-review-del{color:#f07878}.dfb-review-branch{color:#ddd}.dfb-git-list{border:1px solid #ffffff16;border-radius:8px;overflow:hidden;background:#1d1d1e}.dfb-git-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid #ffffff0d}.dfb-git-row:last-child{border-bottom:0}.dfb-git-primary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f2f2f2}.dfb-git-secondary{color:#8f8f96}.dfb-git-ref{color:#d3ad55}.dfb-tree[hidden]{display:none}.dfb-search-results{padding-top:4px;color:#999}.dfb-search-note{padding:10px;color:#888;font-size:12px;line-height:1.5}`
-
+.dfb-review{box-sizing:border-box;height:100%;overflow:auto;padding:14px;background:#171718;color:#ddd;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.dfb-review-summary{margin-bottom:14px;border:1px solid #ffffff16;border-radius:8px;overflow:hidden;background:#1d1d1e}.dfb-review-summary-title,.dfb-diff-title{display:flex;width:100%;align-items:center;gap:8px;box-sizing:border-box;padding:9px 12px;border:0;background:#242425;color:#f2f2f2;font:inherit;font-weight:600;text-align:left}.dfb-review-summary-title{cursor:pointer}.dfb-review-summary-title:hover,.dfb-diff-title:hover{background:#2a2a2b}.dfb-review-disclosure{width:12px;color:#aaa}.dfb-status-row{display:flex;width:100%;box-sizing:border-box;align-items:center;gap:9px;padding:6px 12px;border:0;border-top:1px solid #ffffff0d;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}.dfb-status-row:hover{background:#ffffff0a}.dfb-status-code{display:inline-grid;width:22px;height:20px;flex:none;place-items:center;border-radius:4px;background:#876b2533;color:#e5bd55;font-weight:700}.dfb-status-code[data-kind="new"]{background:#2d754733;color:#63d38d}.dfb-status-code[data-kind="deleted"]{background:#9a3d3d33;color:#f07878}.dfb-status-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-diff-file{margin-bottom:10px;border:1px solid #ffffff16;border-radius:7px;overflow:auto;background:#1b1b1c;scroll-margin-top:58px}.dfb-diff-file[data-selected="true"]{border-color:#4f80d8;box-shadow:0 0 0 1px #4f80d844}.dfb-diff-title{position:sticky;left:0}.dfb-diff-toggle{display:flex;min-width:0;flex:1;align-items:center;gap:8px;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:600;text-align:left;cursor:pointer}.dfb-diff-toggle span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dfb-file-add{margin-left:auto;color:#63d38d}.dfb-file-del{color:#f07878}.dfb-git-action{width:26px;height:26px;border:1px solid #ffffff16;border-radius:50%;background:transparent;color:#aaa;font-size:17px;cursor:pointer}.dfb-git-action:hover{background:#ffffff12;color:#fff}.dfb-diff-body[hidden],.dfb-review-summary-body[hidden]{display:none}.dfb-diff-row{display:grid;grid-template-columns:34px 34px minmax(max-content,1fr);width:max-content;min-width:100%}.dfb-diff-row>span{min-height:21px}.dfb-diff-num{box-sizing:border-box;padding:1px 5px;border-right:1px solid #ffffff10;background:#151516;color:#74747c;text-align:right;user-select:none}.dfb-diff-code{padding:1px 9px;white-space:pre}.dfb-diff-gutter-head{position:sticky;top:0;z-index:1;border-bottom:1px solid #ffffff12;background:#202021;color:#8d8d95}.dfb-diff-gutter-head .dfb-diff-num{background:#202021;color:#999;text-align:center;font-weight:600}.dfb-diff-gutter-head .dfb-diff-code{background:#202021;color:#777}.dfb-diff-add{background:#234b2c66}.dfb-diff-add .dfb-diff-code{color:#b7e7c1}.dfb-diff-del{background:#572b2b66}.dfb-diff-del .dfb-diff-code{color:#f0b4b4}.dfb-diff-hunk{background:#263957}.dfb-diff-hunk .dfb-diff-code{color:#a9c9f4}.dfb-diff-meta .dfb-diff-code{color:#85858d}.dfb-review-empty{display:grid;height:calc(100% - 50px);place-items:center;padding:32px;color:#999;text-align:center;white-space:normal}.dfb-review-toolbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:10px;margin:-14px -14px 14px;padding:10px 14px;border-bottom:1px solid #ffffff14;background:#1b1b1cf2;backdrop-filter:blur(8px)}.dfb-review-mode-wrap{position:relative}.dfb-review-mode{display:flex;min-width:150px;align-items:center;justify-content:space-between;gap:14px;padding:7px 10px;border:1px solid #ffffff12;border-radius:7px;background:#282829;color:#eee;font:inherit;font-weight:600;cursor:pointer}.dfb-review-mode:hover,.dfb-review-mode[aria-expanded="true"]{border-color:#ffffff25;background:#303031}.dfb-review-mode-arrow{color:#aaa;font-size:10px}.dfb-review-mode-menu{position:absolute;z-index:8;top:calc(100% + 5px);left:0;min-width:190px;padding:5px;border:1px solid #ffffff1c;border-radius:9px;background:#2b2b2c;box-shadow:0 10px 26px #0008}.dfb-review-mode-menu[hidden]{display:none}.dfb-review-mode-item{display:flex;width:100%;align-items:center;justify-content:space-between;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:#ddd;font:inherit;text-align:left;cursor:pointer}.dfb-review-mode-item:hover{background:#ffffff10;color:#fff}.dfb-review-mode-item[data-selected="true"]{background:#3b3b3d;color:#fff}.dfb-review-mode-check{width:14px;color:#6d9cff}.dfb-review-count{color:#888}.dfb-review-add{margin-left:auto;color:#63d38d}.dfb-review-del{color:#f07878}.dfb-review-branch{color:#ddd}.dfb-git-list{border:1px solid #ffffff16;border-radius:8px;overflow:hidden;background:#1d1d1e}.dfb-git-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid #ffffff0d}.dfb-git-row:last-child{border-bottom:0}.dfb-git-primary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f2f2f2}.dfb-git-secondary{color:#8f8f96}.dfb-git-ref{color:#d3ad55}.dfb-tree[hidden]{display:none}.dfb-search-results{padding-top:4px;color:#999}.dfb-search-note{padding:10px;color:#888;font-size:12px;line-height:1.5}`;
 const themeCss = `
 #dsh-file-browser{--dfb-bg:var(--dsw-alias-bg-base,#fff);--dfb-l1:var(--dsw-alias-bg-layer-1,#fff);--dfb-l2:var(--dsw-alias-bg-layer-2,#f7f7f8);--dfb-l3:var(--dsw-alias-bg-layer-3,#eee);--dfb-hover:var(--dsw-alias-interactive-bg-hover,#0000000f);--dfb-active:var(--dsw-alias-interactive-bg-active,#00000019);--dfb-border:var(--dsw-alias-border-l2,#0000001a);--dfb-border-soft:var(--dsw-alias-border-l1,#0000000a);--dfb-text:var(--dsw-alias-label-primary,#171719);--dfb-text-2:var(--dsw-alias-label-secondary,#555);--dfb-text-3:var(--dsw-alias-label-tertiary,#777);--dfb-brand:var(--dsw-alias-state-business-primary,#3978ff);--dfb-success:var(--dsw-alias-state-success-primary,#168f55);--dfb-success-bg:var(--dsw-alias-state-success-tertiary,#e7f7ee);--dfb-danger:var(--dsw-alias-state-error-primary,#d73535);--dfb-warn:var(--dsw-alias-state-warn-label,#a76500);background:var(--dfb-bg);color:var(--dfb-text);border-color:var(--dfb-border)}
 #dsh-file-browser .dfb-head,#dsh-file-browser .dfb-file-toolbar,#dsh-file-browser .dfb-tree-pane{border-color:var(--dfb-border)}
@@ -147,7 +149,7 @@ const themeCss = `
 #dsh-file-browser .dfb-diff-num{background:var(--dfb-l2);color:var(--dfb-text-3);border-color:var(--dfb-border-soft)}#dsh-file-browser .dfb-diff-gutter-head,#dsh-file-browser .dfb-diff-gutter-head .dfb-diff-num,#dsh-file-browser .dfb-diff-gutter-head .dfb-diff-code{background:var(--dfb-l3);color:var(--dfb-text-2)}#dsh-file-browser .dfb-diff-add{background:var(--dfb-success-bg)}#dsh-file-browser .dfb-diff-add .dfb-diff-code{color:var(--dfb-success)}#dsh-file-browser .dfb-diff-del{background:color-mix(in srgb,var(--dfb-danger) 12%,var(--dfb-bg))}#dsh-file-browser .dfb-diff-del .dfb-diff-code{color:var(--dfb-danger)}#dsh-file-browser .dfb-diff-hunk{background:var(--dsw-alias-state-business-tertiary,#dbe8ff)}#dsh-file-browser .dfb-diff-hunk .dfb-diff-code{color:var(--dfb-brand)}
 #dsh-file-browser .dfb-git-action{border-color:var(--dfb-border);color:var(--dfb-text-2)}#dsh-file-browser .dfb-git-action:hover{background:var(--dfb-hover);color:var(--dfb-text)}#dsh-file-browser .dfb-console,#dsh-file-browser .dfb-console .xterm-viewport{background:var(--dfb-bg)!important}
 .dfb-themed-overlay{--dfb-l3:var(--dsw-alias-bg-layer-3,#fff);--dfb-hover:var(--dsw-alias-interactive-bg-hover,#0000000f);--dfb-border:var(--dsw-alias-border-l2,#0000001a);--dfb-text:var(--dsw-alias-label-primary,#171719);background:var(--dfb-l3)!important;color:var(--dfb-text)!important;border-color:var(--dfb-border)!important;box-shadow:0 12px 32px var(--dsw-alias-bg-mask-2,#0003)!important}.dfb-themed-overlay button,.dfb-themed-overlay .dfb-menu button{color:var(--dfb-text)!important}.dfb-themed-overlay button:hover,.dfb-themed-overlay .dfb-menu button:hover{background:var(--dfb-hover)!important}.dfb-themed-overlay .dfb-menu{background:var(--dfb-l3)!important;color:var(--dfb-text)!important;border-color:var(--dfb-border)!important}.dfb-themed-overlay .dfb-menu-sep{background:var(--dfb-border)!important}
-`
+`;
 
 async function api(sessionId: string, action: 'list' | 'preview' | 'search', path = ''): Promise<ApiResponse> {
   const query = new URLSearchParams({ sessionId, action, path })
@@ -281,7 +283,7 @@ function dfbHighlightCode(code: string, language: Language): string {
   return result
 }
 
-function dfbRenderMarkdown(content: string): string {
+export function dfbRenderMarkdown(content: string): string {
   let html: string
   try { html = marked.parse(content) as string } catch { html = String(content) }
   try {
@@ -601,433 +603,973 @@ function renderReview(host: HTMLElement, review: ReviewData, changeMode: (mode: 
 }
 
 function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: string): Promise<void>; dispose(): void } {
-  const style = document.createElement('style'); style.textContent = css + reviewCss + themeCss + markdownCss; document.head.append(style)
-  const root = document.createElement('aside'); root.id = 'dsh-file-browser'; root.hidden = true
-  const hostWorkspaces = ctx.workspaces
-  let conversationRoot: HTMLElement | null = null
-  let sessionHeader: HTMLElement | null = null
-  let priorDisplay = ''
-  let priorGridColumns = ''
-  let priorGridRows = ''
-  let priorHeaderColumn = ''
-  let priorHeaderRow = ''
-  const widthKey = 'dsh.file-browser.width'
-  const defaultWidth = 440
-  const storedWidth = Number.parseInt(localStorage.getItem(widthKey) ?? '', 10)
-  let panelWidth = Number.isFinite(storedWidth) ? storedWidth : defaultWidth
-  const syncGrid = (): void => {
-    if (conversationRoot === null || root.hidden) return
-    const available = conversationRoot.clientWidth || window.innerWidth
-    const max = Math.max(320, Math.floor(available * 0.55))
-    panelWidth = Math.min(max, Math.max(320, panelWidth))
-    conversationRoot.style.gridTemplateColumns = `minmax(0, 1fr) ${panelWidth}px`
-  }
-  const restoreConversationLayout = (): void => {
-    if (conversationRoot !== null) {
-      conversationRoot.style.display = priorDisplay
-      conversationRoot.style.gridTemplateColumns = priorGridColumns
-      conversationRoot.style.gridTemplateRows = priorGridRows
+  console.log('[side-panel] v6-file-tabs bundle executing');
+  const style = document.createElement('style');
+  style.textContent = css + reviewCss + themeCss + markdownCss;
+  document.head.append(style);
+  const root = document.createElement('aside');
+  root.id = 'dsh-file-browser';
+  root.hidden = true;
+  const hostWorkspaces = ctx.workspaces;
+  let conversationRoot: HTMLElement | null = null;
+  let sessionHeader = null;
+  const widthKey = 'dsh.file-browser.width';
+  const defaultWidth = 600;
+  const storedWidth = Number.parseInt(localStorage.getItem(widthKey) ?? '', 10);
+  let panelWidth = Number.isFinite(storedWidth) ? storedWidth : defaultWidth;
+  // PATCH(2026-08-14v4): 绕开官方 details 列 520px 宽度上限（不修改官方源码）。
+  // 面板 fixed 定位视口右侧 + 官方 center 列运行时 padding-right 挤压聊天区；
+  // 宽度自由（420 ~ 60% 视口），拖拽用插件自带 resizer。
+  const findFrameParts = () => {
+    const frame = document.querySelector('[data-details-collapsed]');
+    if (frame === null) return null;
+    const center = frame.querySelector('[class*="centerCol"]');
+    return center instanceof HTMLElement ? { frame, center } : null;
+  };
+  let centerCol: HTMLElement | null = null;
+  let priorPaddingRight = '';
+  const syncGrid = () => {
+    if (root.hidden) return;
+    const max = Math.max(420, Math.floor(window.innerWidth * 0.6));
+    panelWidth = Math.min(max, Math.max(420, panelWidth));
+    root.style.width = `${panelWidth}px`;
+    if (centerCol !== null) centerCol.style.paddingRight = `${panelWidth}px`;
+  };
+  const restoreConversationLayout = () => {
+    if (centerCol !== null) centerCol.style.paddingRight = priorPaddingRight;
+  };
+  const attachConversation = (candidate: HTMLElement, header: HTMLElement) => {
+    if (conversationRoot === candidate) return;
+    restoreConversationLayout();
+    conversationRoot = candidate;
+    sessionHeader = header;
+    const parts = findFrameParts();
+    if (parts === null) return; // AppFrame 未渲染，等待下轮观测
+    centerCol = parts.center;
+    priorPaddingRight = parts.center.style.paddingRight;
+    if (root.parentElement !== document.body) document.body.append(root);
+    syncGrid();
+  };
+  const applyWidth = () => {
+    syncGrid();
+  };
+  applyWidth();
+  const resizer = document.createElement('div');
+  resizer.className = 'dfb-resizer';
+  resizer.setAttribute('role', 'separator');
+  resizer.setAttribute('aria-label', '调整文件浏览器宽度');
+  let startX = 0;
+  let startWidth = panelWidth;
+  const pointerMove = (event: PointerEvent) => {
+    panelWidth = startWidth + startX - event.clientX;
+    applyWidth();
+  };
+  const pointerUp = () => {
+    resizer.dataset.dragging = 'false';
+    resizer.releasePointerCapture?.(Number(resizer.dataset.pointer));
+    localStorage.setItem(widthKey, String(panelWidth));
+    window.removeEventListener('pointermove', pointerMove);
+    window.removeEventListener('pointerup', pointerUp);
+  };
+  resizer.onpointerdown = (event: PointerEvent) => {
+    startX = event.clientX;
+    startWidth = panelWidth;
+    resizer.dataset.dragging = 'true';
+    resizer.dataset.pointer = String(event.pointerId);
+    resizer.setPointerCapture?.(event.pointerId);
+    window.addEventListener('pointermove', pointerMove);
+    window.addEventListener('pointerup', pointerUp);
+  };
+  resizer.ondblclick = () => {
+    panelWidth = defaultWidth;
+    applyWidth();
+    localStorage.setItem(widthKey, String(panelWidth));
+  };
+  const head = document.createElement('header');
+  head.className = 'dfb-head';
+  const panelTabs = document.createElement('div');
+  panelTabs.className = 'dfb-panel-tabs';
+  const content = document.createElement('div');
+  content.className = 'dfb-content';
+  const labels = {
+    review: '审查',
+    terminal: '终端',
+    files: '文件'
+  };
+  const views = new Map();
+  const tabButtons = new Map();
+  const openKinds = new Set(['files']);
+  let activeKind = 'files';
+  // PATCH(2026-08-14v6): 文件 tab 栈 —— 支持同时打开多个文件（Codex 式）
+  const fileTabs = new Map<string, { path: string; title: string; tabBtn: HTMLElement; view: HTMLElement; preview: HTMLElement; sessionId: string | undefined }>();   // id -> { path, title, tabBtn, view, preview }
+  let fileTabSeq = 0;
+  let activeFileTab: string | null = null;
+  let scheduleFeatureLabel: (kind: string) => void = () => {};
+  const selectKind = (kind: string) => {
+    openKinds.add(kind);
+    // PATCH(2026-08-14v6): 切换到功能视图时，文件 tab 全部失活
+    if (activeFileTab !== null) {
+      const prev = fileTabs.get(activeFileTab);
+      if (prev !== void 0) {
+        prev.view.hidden = true;
+        prev.tabBtn.dataset.active = 'false';
+      }
+      activeFileTab = null;
     }
-    if (sessionHeader !== null) {
-      sessionHeader.style.gridColumn = priorHeaderColumn
-      sessionHeader.style.gridRow = priorHeaderRow
-    }
+    // PATCH(2026-08-14v6b): 文件功能视图激活时，树单例移回 filesView（保持滚动）
+    if (kind === 'files') moveTreeTo(body);
+    const selectedTab = tabButtons.get(kind);
+    if (selectedTab !== void 0) selectedTab.hidden = false;
+    activeKind = kind;
+    for (const [key, view] of views) view.hidden = key !== kind;
+    for (const [key, tab] of tabButtons) tab.dataset.active = String(key === kind);
+    scheduleFeatureLabel(kind);
+    if (kind === 'review') refreshReview();
+    if (kind === 'terminal') ensureTerminal();
+  };
+  for (const kind of [
+    'review',
+    'terminal',
+    'files'
+  ]) {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'dfb-panel-tab';
+    tab.dataset.active = String(kind === activeKind);
+    tab.hidden = !openKinds.has(kind);
+    const label = document.createElement('span');
+    label.textContent = labels[kind];
+    const closeTab = document.createElement('span');
+    closeTab.textContent = '　×';
+    closeTab.title = '关闭标签';
+    closeTab.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      openKinds.delete(kind);
+      tab.hidden = true;
+      if (activeKind === kind) {
+        const next = [...openKinds].at(-1);
+        if (next !== void 0) selectKind(next);
+        else closePanel();
+      }
+    };
+    tab.append(label, closeTab);
+    tab.onclick = () => selectKind(kind);
+    panelTabs.append(tab);
+    tabButtons.set(kind, tab);
   }
-  const attachConversation = (candidate: HTMLElement, header: HTMLElement): void => {
-    if (conversationRoot === candidate) return
-    restoreConversationLayout()
-    conversationRoot = candidate
-    sessionHeader = header
-    priorDisplay = candidate.style.display
-    priorGridColumns = candidate.style.gridTemplateColumns
-    priorGridRows = candidate.style.gridTemplateRows
-    priorHeaderColumn = header.style.gridColumn
-    priorHeaderRow = header.style.gridRow
-    candidate.style.display = 'grid'
-    candidate.style.gridTemplateRows = 'auto minmax(0, 1fr)'
-    header.style.gridColumn = '1 / -1'
-    header.style.gridRow = '1'
-    candidate.append(root)
-    syncGrid()
-  }
-  const applyWidth = (): void => {
-    syncGrid()
-  }
-  applyWidth()
-  const resizer = document.createElement('div'); resizer.className = 'dfb-resizer'; resizer.setAttribute('role', 'separator'); resizer.setAttribute('aria-label', '调整文件浏览器宽度')
-  let startX = 0; let startWidth = panelWidth
-  const pointerMove = (event: PointerEvent): void => { panelWidth = startWidth + startX - event.clientX; applyWidth() }
-  const pointerUp = (): void => { resizer.dataset.dragging = 'false'; resizer.releasePointerCapture?.(Number(resizer.dataset.pointer)); localStorage.setItem(widthKey, String(panelWidth)); window.removeEventListener('pointermove', pointerMove); window.removeEventListener('pointerup', pointerUp) }
-  resizer.onpointerdown = (event) => { startX = event.clientX; startWidth = panelWidth; resizer.dataset.dragging = 'true'; resizer.dataset.pointer = String(event.pointerId); resizer.setPointerCapture?.(event.pointerId); window.addEventListener('pointermove', pointerMove); window.addEventListener('pointerup', pointerUp) }
-  resizer.ondblclick = () => { panelWidth = defaultWidth; applyWidth(); localStorage.setItem(widthKey, String(panelWidth)) }
-  const head = document.createElement('header'); head.className = 'dfb-head'
-  const panelTabs = document.createElement('div'); panelTabs.className = 'dfb-panel-tabs'
-  const content = document.createElement('div'); content.className = 'dfb-content'
-  type PanelKind = 'review' | 'terminal' | 'files'
-  const labels: Record<PanelKind, string> = { review: '审查', terminal: '终端', files: '文件' }
-  const views = new Map<PanelKind, HTMLElement>()
-  const tabButtons = new Map<PanelKind, HTMLButtonElement>()
-  const openKinds = new Set<PanelKind>(['files'])
-  let activeKind: PanelKind = 'files'
-  let scheduleFeatureLabel: (kind: PanelKind) => void = () => {}
-  const selectKind = (kind: PanelKind): void => {
-    openKinds.add(kind); const selectedTab = tabButtons.get(kind); if (selectedTab !== undefined) selectedTab.hidden = false
-    activeKind = kind
-    for (const [key, view] of views) view.hidden = key !== kind
-    for (const [key, tab] of tabButtons) tab.dataset.active = String(key === kind)
-    scheduleFeatureLabel(kind)
-    if (kind === 'review') void refreshReview()
-    if (kind === 'terminal') void ensureTerminal()
-  }
-  for (const kind of ['review', 'terminal', 'files'] as const) {
-    const tab = document.createElement('button'); tab.type = 'button'; tab.className = 'dfb-panel-tab'; tab.dataset.active = String(kind === activeKind); tab.hidden = !openKinds.has(kind)
-    const label = document.createElement('span'); label.textContent = labels[kind]
-    const closeTab = document.createElement('span'); closeTab.textContent = '　×'; closeTab.title = '关闭标签'; closeTab.onclick = event => { event.stopPropagation(); openKinds.delete(kind); tab.hidden = true; if (activeKind === kind) { const next = [...openKinds].at(-1); if (next !== undefined) selectKind(next); else closePanel() } }
-    tab.append(label, closeTab); tab.onclick = () => selectKind(kind); panelTabs.append(tab); tabButtons.set(kind, tab)
-  }
-  const tools = document.createElement('div'); tools.className = 'dfb-tools'
-  const addTab = document.createElement('button'); addTab.className = 'dfb-tool'; addTab.type = 'button'; addTab.textContent = '+'; addTab.title = '新建功能标签'
-  const expand = document.createElement('button'); expand.className = 'dfb-tool'; expand.type = 'button'; expand.textContent = '⛶'; expand.title = '展开/恢复面板'
-  const close = document.createElement('button'); close.className = 'dfb-close'; close.type = 'button'; close.textContent = '×'; close.title = '关闭'
-  tools.append(addTab, expand, close); head.append(panelTabs, tools)
-  const body = document.createElement('div'); body.className = 'dfb-body'
-  body.dataset.tree = 'true'
-  const filesView = document.createElement('section'); filesView.className = 'dfb-files dfb-view'
-  const fileToolbar = document.createElement('div'); fileToolbar.className = 'dfb-file-toolbar'
-  const currentPath = document.createElement('div'); currentPath.className = 'dfb-path'; currentPath.textContent = '当前工作区'
-  const refreshTree = document.createElement('button'); refreshTree.className = 'dfb-tool'; refreshTree.type = 'button'; refreshTree.textContent = '↻'; refreshTree.title = '刷新目录树'
-  const toggleTree = document.createElement('button'); toggleTree.className = 'dfb-tool'; toggleTree.type = 'button'; toggleTree.textContent = '▤'; toggleTree.title = '收起/展开目录树'
-  fileToolbar.append(currentPath, refreshTree, toggleTree)
-  const preview = document.createElement('div'); preview.className = 'dfb-preview'; preview.innerHTML = '<div class="dfb-empty">从文件树选择文件</div>'
-  const treePane = document.createElement('aside'); treePane.className = 'dfb-tree-pane'
-  const filter = document.createElement('input'); filter.className = 'dfb-filter'; filter.placeholder = '筛选文件...'
-  const tree = document.createElement('div'); tree.className = 'dfb-tree'
-  const searchResults = document.createElement('div'); searchResults.className = 'dfb-tree dfb-search-results'; searchResults.hidden = true
-  let searchTimer: number | undefined
-  let searchRequest = 0
+  const tools = document.createElement('div');
+  tools.className = 'dfb-tools';
+  const addTab = document.createElement('button');
+  addTab.className = 'dfb-tool';
+  addTab.type = 'button';
+  addTab.textContent = '+';
+  addTab.title = '新建功能标签';
+  const expand = document.createElement('button');
+  expand.className = 'dfb-tool';
+  expand.type = 'button';
+  expand.textContent = '⛶';
+  expand.title = '展开/恢复面板';
+  const close = document.createElement('button');
+  close.className = 'dfb-close';
+  close.type = 'button';
+  close.textContent = '×';
+  close.title = '关闭';
+  tools.append(addTab, expand, close);
+  head.append(panelTabs, tools);
+  const body = document.createElement('div');
+  body.className = 'dfb-body';
+  body.dataset.tree = 'true';
+  const filesView = document.createElement('section');
+  filesView.className = 'dfb-files dfb-view';
+  const fileToolbar = document.createElement('div');
+  fileToolbar.className = 'dfb-file-toolbar';
+  const refreshTree = document.createElement('button');
+  refreshTree.className = 'dfb-tool';
+  refreshTree.type = 'button';
+  refreshTree.textContent = '↻';
+  refreshTree.title = '刷新目录树';
+  const toggleTree = document.createElement('button');
+  toggleTree.className = 'dfb-tool';
+  toggleTree.type = 'button';
+  toggleTree.textContent = '▤';
+  toggleTree.title = '收起/展开目录树';
+  fileToolbar.append(refreshTree, toggleTree);
+  const preview = document.createElement('div');
+  preview.className = 'dfb-preview';
+  preview.innerHTML = '<div class="dfb-empty">从文件树选择文件</div>';
+  const treePane = document.createElement('aside');
+  treePane.className = 'dfb-tree-pane';
+  const filter = document.createElement('input');
+  filter.className = 'dfb-filter';
+  filter.placeholder = '筛选文件...';
+  const tree = document.createElement('div');
+  tree.className = 'dfb-tree';
+  const searchResults = document.createElement('div');
+  searchResults.className = 'dfb-tree dfb-search-results';
+  searchResults.hidden = true;
+  let searchTimer: number | undefined;
+  let searchRequest = 0;
   filter.oninput = () => {
-    if (searchTimer !== undefined) window.clearTimeout(searchTimer)
-    const query = filter.value.trim(); const request = ++searchRequest
-    tree.hidden = query !== ''; searchResults.hidden = query === ''
-    if (query === '') { searchResults.replaceChildren(); return }
-    searchResults.textContent = '正在搜索工作区…'
+    if (searchTimer !== void 0) window.clearTimeout(searchTimer);
+    const query = filter.value.trim();
+    const request = ++searchRequest;
+    tree.hidden = query !== '';
+    searchResults.hidden = query === '';
+    if (query === '') {
+      searchResults.replaceChildren();
+      return;
+    }
+    searchResults.textContent = '正在搜索工作区…';
     searchTimer = window.setTimeout(() => {
-      const sessionId = currentSession()
-      if (sessionId === undefined) { searchResults.textContent = '当前没有打开的会话'; return }
-      void api(sessionId, 'search', query).then(response => {
-        if (request !== searchRequest) return
-        searchResults.replaceChildren()
-        if (!response.ok || !('matches' in response)) { searchResults.textContent = response.ok ? '没有搜索结果' : response.error; return }
-        if (response.matches.length === 0) { searchResults.textContent = '没有匹配的文件'; return }
-        for (const entry of response.matches) {
-          const row = button(entry.path, ''); row.firstElementChild!.replaceWith(fileIcon(entry.name)); row.title = entry.path
-          row.onclick = () => { void openFile(entry.path) }; searchResults.append(row)
+      const sessionId = currentSession();
+      if (sessionId === void 0) {
+        searchResults.textContent = '当前没有打开的会话';
+        return;
+      }
+      api(sessionId, 'search', query).then((response) => {
+        if (request !== searchRequest) return;
+        searchResults.replaceChildren();
+        if (!response.ok || !('matches' in response)) {
+          searchResults.textContent = response.ok ? '没有搜索结果' : response.error;
+          return;
         }
-        if (response.truncated) { const note = document.createElement('div'); note.className = 'dfb-search-note'; note.textContent = `仅显示前 ${response.matches.length} 条结果，请输入更精确的关键词`; searchResults.append(note) }
-      })
-    }, 200)
+        if (response.matches.length === 0) {
+          searchResults.textContent = '没有匹配的文件';
+          return;
+        }
+        for (const entry of response.matches) {
+          const row = button(entry.path, '');
+          row.firstElementChild.replaceWith(fileIcon(entry.name));
+          row.title = entry.path;
+          row.onclick = () => {
+            openFile(entry.path);
+          };
+          searchResults.append(row);
+        }
+        if (response.truncated) {
+          const note = document.createElement('div');
+          note.className = 'dfb-search-note';
+          note.textContent = `仅显示前 ${response.matches.length} 条结果，请输入更精确的关键词`;
+          searchResults.append(note);
+        }
+      });
+    }, 200);
+  };
+  treePane.append(filter, tree, searchResults);
+  body.append(preview, treePane);
+  filesView.append(fileToolbar, body);
+  views.set('files', filesView);
+  const review = document.createElement('div');
+  review.className = 'dfb-review dfb-view';
+  views.set('review', review);
+  const terminal = document.createElement('div');
+  terminal.className = 'dfb-console dfb-view';
+  views.set('terminal', terminal);
+  for (const [kind, view] of views) {
+    view.classList.add('dfb-view');
+    view.hidden = kind !== activeKind;
+    content.append(view);
   }
-  treePane.append(filter, tree, searchResults); body.append(preview, treePane); filesView.append(fileToolbar, body); views.set('files', filesView)
-  const review = document.createElement('div'); review.className = 'dfb-review dfb-view'; views.set('review', review)
-  const terminal = document.createElement('div'); terminal.className = 'dfb-console dfb-view'; views.set('terminal', terminal)
-  for (const [kind, view] of views) { view.classList.add('dfb-view'); view.hidden = kind !== activeKind; content.append(view) }
-  root.append(resizer, head, content)
-  document.body.append(root)
-  const contextMenu = document.createElement('div'); contextMenu.className = 'dfb-menu dfb-themed-overlay'; contextMenu.hidden = true; document.body.append(contextMenu)
-  const addMenu = document.createElement('div'); addMenu.className = 'dfb-menu dfb-themed-overlay'; addMenu.hidden = true; document.body.append(addMenu)
-  for (const kind of ['review', 'terminal', 'files'] as const) { const item = document.createElement('button'); item.textContent = labels[kind]; item.onclick = () => { addMenu.hidden = true; selectKind(kind) }; addMenu.append(item) }
-  addTab.onclick = event => { const rect = (event.currentTarget as HTMLElement).getBoundingClientRect(); addMenu.style.left = `${Math.max(8, rect.right - 220)}px`; addMenu.style.top = `${rect.bottom + 4}px`; addMenu.hidden = !addMenu.hidden }
-  const hideMenu = (): void => { contextMenu.hidden = true; contextMenu.replaceChildren() }
+  root.append(resizer, head, content);
+  document.body.append(root);
+  const contextMenu = document.createElement('div');
+  contextMenu.className = 'dfb-menu dfb-themed-overlay';
+  contextMenu.hidden = true;
+  document.body.append(contextMenu);
+  const addMenu = document.createElement('div');
+  addMenu.className = 'dfb-menu dfb-themed-overlay';
+  addMenu.hidden = true;
+  document.body.append(addMenu);
+  for (const kind of [
+    'review',
+    'terminal',
+    'files'
+  ]) {
+    const item = document.createElement('button');
+    item.textContent = labels[kind];
+    item.onclick = () => {
+      addMenu.hidden = true;
+      selectKind(kind);
+    };
+    addMenu.append(item);
+  }
+  addTab.onclick = (event: MouseEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    addMenu.style.left = `${Math.max(8, rect.right - 220)}px`;
+    addMenu.style.top = `${rect.bottom + 4}px`;
+    addMenu.hidden = !addMenu.hidden;
+  };
+  const hideMenu = () => {
+    contextMenu.hidden = true;
+    contextMenu.replaceChildren();
+  };
   const openContextMenu = async (entry: BrowserEntry, x: number, y: number): Promise<void> => {
-    contextMenu.replaceChildren(); contextMenu.hidden = false; contextMenu.style.left = `${Math.min(x, window.innerWidth - 240)}px`; contextMenu.style.top = `${Math.min(y, window.innerHeight - 250)}px`
-    const action = (label: string, runAction: () => void): HTMLButtonElement => { const item = document.createElement('button'); item.type = 'button'; item.textContent = label; item.onclick = () => { hideMenu(); runAction() }; return item }
-    const sessionId = currentSession(); if (sessionId === undefined) return
-    const loading = document.createElement('button'); loading.type = 'button'; loading.disabled = true; loading.textContent = '正在解析路径…'; contextMenu.append(loading)
-    const response = await postApi({ sessionId, action: 'resolve-path', path: entry.path })
+    contextMenu.replaceChildren();
+    contextMenu.hidden = false;
+    contextMenu.style.left = `${Math.min(x, window.innerWidth - 240)}px`;
+    contextMenu.style.top = `${Math.min(y, window.innerHeight - 250)}px`;
+    const action = (label: string, runAction: () => void) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.textContent = label;
+      item.onclick = () => {
+        hideMenu();
+        runAction();
+      };
+      return item;
+    };
+    const sessionId = currentSession();
+    if (sessionId === void 0) return;
+    const loading = document.createElement('button');
+    loading.type = 'button';
+    loading.disabled = true;
+    loading.textContent = '正在解析路径…';
+    contextMenu.append(loading);
+    const response = await postApi({
+      sessionId,
+      action: 'resolve-path',
+      path: entry.path
+    });
     if (!response.ok || !('path' in response)) {
-      contextMenu.replaceChildren()
-      const failed = document.createElement('button'); failed.type = 'button'; failed.disabled = true; failed.textContent = response.ok ? '无法解析路径' : response.error; contextMenu.append(failed)
-      return
+      contextMenu.replaceChildren();
+      const failed = document.createElement('button');
+      failed.type = 'button';
+      failed.disabled = true;
+      failed.textContent = response.ok ? '无法解析路径' : response.error;
+      contextMenu.append(failed);
+      return;
     }
-    if (contextMenu.hidden) return
-    const resolved = response
-    contextMenu.replaceChildren()
-    const revealPath = entry.kind === 'directory' ? resolved.path : resolved.parentPath
-    contextMenu.append(action('📂  在文件管理器中打开', () => { void hostWorkspaces.openPath(revealPath).catch(error => console.error('side-panel host.openPath failed', error)) }))
-    const openWith = document.createElement('button'); openWith.textContent = '　打开方式　›'
-    const submenu = document.createElement('div'); submenu.className = 'dfb-menu dfb-submenu'; submenu.hidden = true
-    submenu.append(
-      action('VS Code', () => openBrowserProtocol(editorUri('vscode', resolved))),
-      action('Cursor', () => openBrowserProtocol(editorUri('cursor', resolved))),
-      action('默认应用', () => { void hostWorkspaces.openPath(resolved.path).catch(error => console.error('side-panel host.openPath failed', error)) }),
-    )
-    openWith.onmouseenter = () => { submenu.hidden = false }; openWith.onmouseleave = () => { setTimeout(() => { if (!submenu.matches(':hover')) submenu.hidden = true }, 80) }; contextMenu.append(openWith, submenu)
-    const sep = document.createElement('div'); sep.className = 'dfb-menu-sep'; contextMenu.append(sep)
-    contextMenu.append(action('复制路径', () => { void navigator.clipboard.writeText(resolved.path) }))
+    if (contextMenu.hidden) return;
+    const resolved = response;
+    contextMenu.replaceChildren();
+    const revealPath = entry.kind === 'directory' ? resolved.path : resolved.parentPath;
+    contextMenu.append(action('📂  在文件管理器中打开', () => {
+      hostWorkspaces.openPath(revealPath).catch((error) => console.error('side-panel host.openPath failed', error));
+    }));
+    const openWith = document.createElement('button');
+    openWith.textContent = '　打开方式　›';
+    const submenu = document.createElement('div');
+    submenu.className = 'dfb-menu dfb-submenu';
+    submenu.hidden = true;
+    submenu.append(action('VS Code', () => openBrowserProtocol(editorUri('vscode', resolved))), action('Cursor', () => openBrowserProtocol(editorUri('cursor', resolved))), action('默认应用', () => {
+      hostWorkspaces.openPath(resolved.path).catch((error) => console.error('side-panel host.openPath failed', error));
+    }));
+    openWith.onmouseenter = () => {
+      submenu.hidden = false;
+    };
+    openWith.onmouseleave = () => {
+      setTimeout(() => {
+        if (!submenu.matches(':hover')) submenu.hidden = true;
+      }, 80);
+    };
+    contextMenu.append(openWith, submenu);
+    const sep = document.createElement('div');
+    sep.className = 'dfb-menu-sep';
+    contextMenu.append(sep);
+    contextMenu.append(action('复制路径', () => {
+      navigator.clipboard.writeText(resolved.path);
+    }));
     contextMenu.append(action('添加到任务', () => {
-      const composer = conversationRoot?.querySelector<HTMLTextAreaElement>('textarea:not([aria-hidden="true"])'); if (composer === null || composer === undefined) return
-      const start = composer.selectionStart; composer.setRangeText(entry.path, start, composer.selectionEnd, 'end'); composer.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: entry.path })); composer.focus()
-    }))
-  }
-  const dismissMenus = (event: PointerEvent): void => {
-    const target = event.target as Node
-    if (!contextMenu.contains(target)) hideMenu()
-    if (!addMenu.contains(target) && target !== addTab) addMenu.hidden = true
-  }
-  document.addEventListener('pointerdown', dismissMenus)
-
-  let browserTab: HTMLButtonElement | null = null
-  let browserTabLabel: HTMLSpanElement | null = null
-  let browserTabStage: HTMLSpanElement | null = null
-  const featureLabels = ['文件', '终端', '审查'] as const
-  let featureLabelIndex = 0
-  let featureLabelTimer: number | undefined
-  let featureAnimationTimers: number[] = []
-  let featureLabelAnimating = false
-  let featureFlight: HTMLElement | null = null
-  let browserTabWhale: HTMLElement | null = null
-  const removeFeatureFlight = (): void => {
-    if (featureFlight === null) return
-    const whale = featureFlight.querySelector<HTMLElement>('.dfb-tab-whale')
-    if (whale !== null) removeFishLogo(whale)
-    featureFlight.remove()
-    featureFlight = null
-  }
-  const launchWhale = (): void => {
-    const tab = browserTab
-    if (tab === null) return
-    removeFeatureFlight()
-    const rect = tab.getBoundingClientRect()
-    const flight = document.createElement('div'); flight.className = 'dfb-whale-flight'; flight.style.left = `${rect.left + rect.width / 2 - 40}px`; flight.style.top = `${rect.top - 50}px`
-    const whale = createFishLogo(); whale.classList.add('dfb-tab-whale')
-    const splash = document.createElement('span'); splash.className = 'dfb-tab-splash'; splash.append(document.createElement('i'), document.createElement('b'))
-    flight.append(whale, splash); document.body.append(flight); featureFlight = flight
-  }
-  const showFeatureLabel = (index: number, animate: boolean): void => {
-    featureLabelIndex = index
-    const label = browserTabLabel
-    if (label === null) return
-    if (!animate || featureLabelAnimating) { label.textContent = featureLabels[index]; return }
-    featureLabelAnimating = true
-    launchWhale()
-    label.dataset.motion = 'out'
-    featureAnimationTimers.push(window.setTimeout(() => {
-      label.textContent = featureLabels[index]
-      label.dataset.motion = 'in'
-      featureAnimationTimers.push(window.setTimeout(() => { delete label.dataset.motion }, 270))
-    }, 520))
-    featureAnimationTimers.push(window.setTimeout(() => { removeFeatureFlight(); featureLabelAnimating = false; featureAnimationTimers = [] }, 1_120))
-  }
-  const stopFeatureLabels = (reset: boolean): void => {
-    if (featureLabelTimer !== undefined) window.clearTimeout(featureLabelTimer)
-    featureLabelTimer = undefined
-    for (const timer of featureAnimationTimers) window.clearTimeout(timer)
-    featureAnimationTimers = []
-    featureLabelAnimating = false
-    removeFeatureFlight()
-    if (reset) showFeatureLabel(0, false)
-    if (browserTabLabel !== null) delete browserTabLabel.dataset.motion
-  }
-  scheduleFeatureLabel = (kind: PanelKind): void => {
-    if (featureLabelTimer !== undefined) window.clearTimeout(featureLabelTimer)
-    featureLabelTimer = undefined
-    const target = kind === 'files' ? 0 : kind === 'terminal' ? 1 : 2
-    if (root.hidden || target === featureLabelIndex) return
-    featureLabelTimer = window.setTimeout(() => { featureLabelTimer = undefined; if (!root.hidden && activeKind === kind) showFeatureLabel(target, true) }, 5_000)
-  }
-  const mountTab = (): void => {
-    const tablists = document.querySelectorAll<HTMLElement>('[role="tablist"]')
-    const tablist = [...tablists].find(candidate =>
-      [...candidate.querySelectorAll<HTMLButtonElement>(':scope > button[role="tab"]')]
-        .some(tab => {
-          const label = tab.textContent?.trim()
-          return label === 'Trajectory' || label === '轨迹'
-        }),
-    )
-    if (tablist === undefined) return
-    const header = tablist.closest('header')
-    const candidate = header?.parentElement
-    if (header instanceof HTMLElement && candidate instanceof HTMLElement) attachConversation(candidate, header)
-    if (tablist.querySelector('.dfb-tab') !== null) return
-    const reference = tablist.querySelector<HTMLButtonElement>(':scope > button[role="tab"][aria-selected="false"]')
-      ?? tablist.querySelector<HTMLButtonElement>(':scope > button[role="tab"]')
-    if (reference === null) return
-    const tab = document.createElement('button')
-    tab.type = 'button'; tab.role = 'tab'; tab.className = `${reference.className} dfb-tab`
-    const stage = document.createElement('span'); stage.className = 'dfb-tab-stage'
-    const label = document.createElement('span'); label.className = 'dfb-tab-label'; label.textContent = featureLabels[featureLabelIndex]
-    const whale = createFishLogo(); whale.classList.add('dfb-tab-whale'); stage.append(whale); browserTabWhale = whale
-    const splash = document.createElement('span'); splash.className = 'dfb-tab-splash'; splash.append(document.createElement('i'), document.createElement('b'))
-    stage.append(label, splash); tab.append(stage); browserTabLabel = label; browserTabStage = stage
-    tab.setAttribute('aria-selected', String(!root.hidden))
-    tab.onclick = () => { root.hidden ? open() : closePanel() }
-    tablist.append(tab); browserTab = tab
-  }
-  const tabObserver = new MutationObserver(mountTab)
-  tabObserver.observe(document.body, { childList: true, subtree: true })
-  mountTab()
-
-  let loadedSession = ''
-  const clientSessions = (ctx as unknown as {
-    sessions: {
-      list: { getSnapshot(): { current?: string; byId: Record<string, { id: string; parentId?: string; displayTitle: string; running?: boolean }> } }
-      open(id: string): void
+      const composer = conversationRoot?.querySelector('textarea:not([aria-hidden="true"])');
+      if (composer === null || composer === void 0) return;
+      const start = composer.selectionStart;
+      composer.setRangeText(entry.path, start, composer.selectionEnd, 'end');
+      composer.dispatchEvent(new InputEvent('input', {
+        bubbles: true,
+        inputType: 'insertText',
+        data: entry.path
+      }));
+      composer.focus();
+    }));
+  };
+  const dismissMenus = (event: PointerEvent) => {
+    const target = event.target;
+    if (!contextMenu.contains(target)) hideMenu();
+    if (!addMenu.contains(target) && target !== addTab) addMenu.hidden = true;
+  };
+  document.addEventListener('pointerdown', dismissMenus);
+  let browserTab: HTMLElement | null = null;
+  let browserTabLabel: HTMLElement | null = null;
+  const featureLabels = [
+    '文件',
+    '终端',
+    '审查'
+  ];
+  let featureLabelIndex = 0;
+  let featureLabelTimer: number | undefined;
+  let featureAnimationTimers = [];
+  let featureLabelAnimating = false;
+  let featureFlight: HTMLElement | null = null;
+  let browserTabWhale: HTMLElement | null = null;
+  const removeFeatureFlight = () => {
+    if (featureFlight === null) return;
+    const whale = featureFlight.querySelector('.dfb-tab-whale');
+    if (whale !== null) removeFishLogo(whale);
+    featureFlight.remove();
+    featureFlight = null;
+  };
+  const launchWhale = () => {
+    const tab = browserTab;
+    if (tab === null) return;
+    removeFeatureFlight();
+    const rect = tab.getBoundingClientRect();
+    const flight = document.createElement('div');
+    flight.className = 'dfb-whale-flight';
+    flight.style.left = `${rect.left + rect.width / 2 - 40}px`;
+    flight.style.top = `${rect.top - 50}px`;
+    const whale = createFishLogo();
+    whale.classList.add('dfb-tab-whale');
+    const splash = document.createElement('span');
+    splash.className = 'dfb-tab-splash';
+    splash.append(document.createElement('i'), document.createElement('b'));
+    flight.append(whale, splash);
+    document.body.append(flight);
+    featureFlight = flight;
+  };
+  const showFeatureLabel = (index: number, animate: boolean) => {
+    featureLabelIndex = index;
+    const label = browserTabLabel;
+    if (label === null) return;
+    if (!animate || featureLabelAnimating) {
+      label.textContent = featureLabels[index];
+      return;
     }
-  }).sessions
-  const currentSession = (): string | undefined => clientSessions.list.getSnapshot().current
-  let reviewMode: ReviewMode = 'unstaged'
-  let reviewRequest = 0
-  const refreshReview = async (): Promise<void> => {
-    const sessionId = currentSession(); if (sessionId === undefined) return
-    const request = ++reviewRequest
-    if (review.childElementCount === 0) review.textContent = '正在读取 Git 变更…'
-    const response = await postApi({ sessionId, action: 'review', mode: reviewMode })
-    if (request !== reviewRequest) return
-    if (response.ok && 'review' in response) renderReview(
-      review,
-      response.review,
-      nextMode => { reviewMode = nextMode; void refreshReview() },
-      (action, path) => { void postApi({ sessionId, action, path }).then(result => { if (result.ok) void refreshReview(); else review.textContent = result.error }) },
-    )
-    else review.textContent = response.ok ? '无数据' : response.error
-  }
-  let terminalId: string | undefined
-  // [PATCH 2026-08-27] 终端归属会话。宿主按 owner=sessionId 校验所有
+    featureLabelAnimating = true;
+    launchWhale();
+    label.dataset.motion = 'out';
+    featureAnimationTimers.push(window.setTimeout(() => {
+      label.textContent = featureLabels[index];
+      label.dataset.motion = 'in';
+      featureAnimationTimers.push(window.setTimeout(() => {
+        delete label.dataset.motion;
+      }, 270));
+    }, 520));
+    featureAnimationTimers.push(window.setTimeout(() => {
+      removeFeatureFlight();
+      featureLabelAnimating = false;
+      featureAnimationTimers = [];
+    }, 1120));
+  };
+  const stopFeatureLabels = (reset: boolean) => {
+    if (featureLabelTimer !== void 0) window.clearTimeout(featureLabelTimer);
+    featureLabelTimer = void 0;
+    for (const timer of featureAnimationTimers) window.clearTimeout(timer);
+    featureAnimationTimers = [];
+    featureLabelAnimating = false;
+    removeFeatureFlight();
+    if (reset) showFeatureLabel(0, false);
+    if (browserTabLabel !== null) delete browserTabLabel.dataset.motion;
+  };
+  scheduleFeatureLabel = (kind) => {
+    if (featureLabelTimer !== void 0) window.clearTimeout(featureLabelTimer);
+    featureLabelTimer = void 0;
+    const target = kind === 'files' ? 0 : kind === 'terminal' ? 1 : 2;
+    if (root.hidden || target === featureLabelIndex) return;
+    featureLabelTimer = window.setTimeout(() => {
+      featureLabelTimer = void 0;
+      if (!root.hidden && activeKind === kind) showFeatureLabel(target, true);
+    }, 5e3);
+  };
+  const mountTab = () => {
+    const tablist = [...document.querySelectorAll('[role="tablist"]')].find((candidate) => [...candidate.querySelectorAll(':scope > button[role="tab"]')].some((tab) => {
+      const label = tab.textContent?.trim();
+      return label === 'Trajectory' || label === '轨迹';
+    }));
+    if (tablist === void 0) return;
+    const header = tablist.closest('header');
+    const candidate = header?.parentElement;
+    if (header instanceof HTMLElement && candidate instanceof HTMLElement) attachConversation(candidate, header);
+    if (tablist.querySelector('.dfb-tab') !== null) return;
+    const reference = tablist.querySelector(':scope > button[role="tab"][aria-selected="false"]') ?? tablist.querySelector(':scope > button[role="tab"]');
+    if (reference === null) return;
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.role = 'tab';
+    tab.className = `${reference.className} dfb-tab`;
+    const stage = document.createElement('span');
+    stage.className = 'dfb-tab-stage';
+    const label = document.createElement('span');
+    label.className = 'dfb-tab-label';
+    label.textContent = featureLabels[featureLabelIndex];
+    const whale = createFishLogo();
+    whale.classList.add('dfb-tab-whale');
+    stage.append(whale);
+    browserTabWhale = whale;
+    const splash = document.createElement('span');
+    splash.className = 'dfb-tab-splash';
+    splash.append(document.createElement('i'), document.createElement('b'));
+    stage.append(label, splash);
+    tab.append(stage);
+    browserTabLabel = label;
+    tab.setAttribute('aria-selected', String(!root.hidden));
+    tab.onclick = () => {
+      root.hidden ? open() : closePanel();
+    };
+    tablist.append(tab);
+    browserTab = tab;
+  };
+  const tabObserver = new MutationObserver(mountTab);
+  tabObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  mountTab();
+  let loadedSession = '';
+  const clientSessions = ctx.sessions;
+  const currentSession = () => clientSessions.list.getSnapshot().current;
+  // PATCH(2026-08-14v6e): 会话切换跟踪 —— 切换工作区时重置右侧面板
+  let lastSessionId: string | undefined = clientSessions.list.getSnapshot().current;
+  const unsubSessions = clientSessions.list.subscribe(() => {
+    const cur = clientSessions.list.getSnapshot().current;
+    if (cur === lastSessionId) return;
+    lastSessionId = cur;
+    // PATCH(2026-08-14v6h): 文件 tab 按会话分组 —— 只显示当前工作区的 tab
+    for (const [id, ft] of fileTabs) {
+      const mine = ft.sessionId === cur;
+      ft.tabBtn.hidden = !mine;
+      if (!mine) {
+        ft.view.hidden = true;
+        ft.tabBtn.dataset.active = 'false';
+      }
+    }
+    // 激活当前会话最近打开的文件 tab；否则显示文件视图（树）
+    const curTabs = [...fileTabs].filter(([, ft]) => ft.sessionId === cur);
+    if (curTabs.length > 0) {
+      activateFileTab(curTabs[curTabs.length - 1][0]);
+    } else {
+      showFilesView();
+    }
+    // 强制树重载（当前工作区根）
+    loadedSession = '';
+    if (cur !== void 0) load(cur, '', tree);
+  });
+  let reviewMode: ReviewMode = 'unstaged';
+  let reviewRequest = 0;
+  const refreshReview = async () => {
+    const sessionId = currentSession();
+    if (sessionId === void 0) return;
+    const request = ++reviewRequest;
+    if (review.childElementCount === 0) review.textContent = '正在读取 Git 变更…';
+    const response = await postApi({
+      sessionId,
+      action: 'review',
+      mode: reviewMode
+    });
+    if (request !== reviewRequest) return;
+    if (response.ok && 'review' in response) renderReview(review, response.review, (nextMode: ReviewMode) => {
+      reviewMode = nextMode;
+      refreshReview();
+    }, (action: 'git-stage' | 'git-unstage', path: string) => {
+      postApi({
+        sessionId,
+        action,
+        path
+      }).then((result) => {
+        if (result.ok) refreshReview();
+        else review.textContent = result.error;
+      });
+    });
+    else review.textContent = response.ok ? '无数据' : response.error;
+  };
+  let terminalId: string | undefined;
+  // PATCH(2026-08-27): 终端归属会话。宿主按 owner=sessionId 校验所有
   // terminal-* 动作；轮询/输入/缩放/关闭必须绑定打开时的会话，
   // 否则会话切换后 terminal-read 被宿主拒绝、60ms 轮询空转。
-  let terminalSessionId: string | undefined
-  let xterm: XTerminal | undefined
-  let terminalPoll: number | undefined
-  const terminalTheme = (): { background: string; foreground: string; selectionBackground: string; selectionInactiveBackground: string } => {
-    const computed = getComputedStyle(root)
+  let terminalSessionId: string | undefined;
+  let xterm: XTerminal | undefined;
+  let terminalPoll: number | undefined;
+  const terminalTheme = () => {
+    const computed = getComputedStyle(root);
     return {
       background: computed.getPropertyValue('--dfb-bg').trim() || '#fff',
       foreground: computed.getPropertyValue('--dfb-text').trim() || '#171719',
       selectionBackground: computed.getPropertyValue('--dsw-alias-state-business-tertiary').trim() || '#c9dcff',
-      selectionInactiveBackground: computed.getPropertyValue('--dsw-alias-state-business-tertiary').trim() || '#c9dcff',
-    }
-  }
-  let dfbLastDark = document.body.hasAttribute('data-ds-dark-theme')
+      selectionInactiveBackground: computed.getPropertyValue('--dsw-alias-state-business-tertiary').trim() || '#c9dcff'
+    };
+  };
+  let dfbLastDark = document.body.hasAttribute('data-ds-dark-theme');
   const themeObserver = new MutationObserver(() => {
-    if (xterm !== undefined) xterm.options.theme = terminalTheme()
-    refreshEditorThemes()
-    const dark = document.body.hasAttribute('data-ds-dark-theme')
+    if (xterm !== void 0) xterm.options.theme = terminalTheme();
+    refreshEditorThemes();
+    const dark = document.body.hasAttribute('data-ds-dark-theme');
     if (dark !== dfbLastDark) {
-      dfbLastDark = dark
-      const browserRoot = document.getElementById('dsh-file-browser')
-      if (browserRoot !== null) dfbRenderMermaidBlocks(browserRoot)
+      dfbLastDark = dark;
+      const browserRoot = document.getElementById('dsh-file-browser');
+      if (browserRoot !== null) dfbRenderMermaidBlocks(browserRoot);
     }
-  })
-  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme', 'style'] })
-  const closeTerminal = async (): Promise<void> => {
-    const sid = terminalSessionId
-    const tid = terminalId
-    terminalSessionId = undefined
-    terminalId = undefined
-    if (terminalPoll !== undefined) { window.clearInterval(terminalPoll); terminalPoll = undefined }
-    if (sid !== undefined && tid !== undefined) {
-      try { await postApi({ sessionId: sid, action: 'terminal-close', terminalId: tid }) } catch { /* 关闭失败不影响面板 */ }
+  });
+  themeObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['data-ds-dark-theme', 'style']
+  });
+  const closeTerminal = async () => {
+    const sid = terminalSessionId;
+    const tid = terminalId;
+    terminalSessionId = void 0;
+    terminalId = void 0;
+    if (terminalPoll !== void 0) {
+      window.clearInterval(terminalPoll);
+      terminalPoll = void 0;
     }
-  }
-  const pollTerminal = async (): Promise<void> => {
-    // 会话已切换：终端归属旧会话，先关闭再让 ensureTerminal 为新会话重开。
-    if (currentSession() !== terminalSessionId) { await closeTerminal(); return }
-    const sessionId = terminalSessionId; if (sessionId === undefined || terminalId === undefined) return
-    const response = await postApi({ sessionId, action: 'terminal-read', terminalId })
-    if (response.ok && 'pty' in response) { if (response.pty.output !== '') xterm?.write(response.pty.output); if (response.pty.exited && terminalPoll !== undefined) window.clearInterval(terminalPoll) }
-  }
-  const ensureTerminal = async (): Promise<void> => {
-    if (terminalId !== undefined) { setTimeout(() => { xterm?.clearSelection(); fitTerminal() }, 0); return }
-    const sessionId = currentSession(); if (sessionId === undefined) return
-    xterm = new XTerminal({ cursorBlink: true, convertEol: true, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 13, theme: terminalTheme() })
-    const fit = new FitAddon(); fitAddon = fit; xterm.loadAddon(fit); xterm.open(terminal); fitTerminal(); requestAnimationFrame(fitTerminal)
-    const response = await postApi({ sessionId, action: 'terminal-open', cols: xterm.cols, rows: xterm.rows })
-    if (!response.ok || !('pty' in response)) { xterm.write(`\r\n${response.ok ? '无法启动终端' : response.error}\r\n`); return }
-    terminalId = response.pty.id
-    terminalSessionId = sessionId
-    xterm.onData(data => { if (terminalId !== undefined && terminalSessionId !== undefined) void postApi({ sessionId: terminalSessionId, action: 'terminal-input', terminalId, data }) })
-    terminalPoll = window.setInterval(() => void pollTerminal(), 60)
-    await pollTerminal()
-  }
-  let fitAddon: FitAddon | undefined
-  let resizeFrame: number | undefined
-  const fitTerminal = (): void => {
-    if (terminal.hidden || xterm === undefined || fitAddon === undefined) return
-    fitAddon.fit()
-    const sessionId = terminalSessionId
-    if (sessionId !== undefined && terminalId !== undefined) void postApi({ sessionId, action: 'terminal-resize', terminalId, cols: xterm.cols, rows: xterm.rows })
-  }
+    if (sid !== void 0 && tid !== void 0) {
+      try {
+        await postApi({ sessionId: sid, action: 'terminal-close', terminalId: tid });
+      } catch (_err) { /* 关闭失败不影响面板 */ }
+    }
+  };
+  const pollTerminal = async () => {
+    // 会话已切换：终端归属旧会话，先关闭再让 ensureTerminal 为
+    // 新会话重开，杜绝跨会话读写身份不一致。
+    if (currentSession() !== terminalSessionId) {
+      await closeTerminal();
+      return;
+    }
+    const sessionId = terminalSessionId;
+    if (sessionId === void 0 || terminalId === void 0) return;
+    const response = await postApi({
+      sessionId,
+      action: 'terminal-read',
+      terminalId
+    });
+    if (response.ok && 'pty' in response) {
+      if (response.pty.output !== '') xterm?.write(response.pty.output);
+      if (response.pty.exited && terminalPoll !== void 0) window.clearInterval(terminalPoll);
+    }
+  };
+  const ensureTerminal = async () => {
+    if (terminalId !== void 0) {
+      setTimeout(() => {
+        xterm?.clearSelection();
+        fitTerminal();
+      }, 0);
+      return;
+    }
+    const sessionId = currentSession();
+    if (sessionId === void 0) return;
+    xterm = new XTerminal({
+      cursorBlink: true,
+      convertEol: true,
+      fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+      fontSize: 13,
+      theme: terminalTheme()
+    });
+    const fit = new FitAddon();
+    fitAddon = fit;
+    xterm.loadAddon(fit);
+    xterm.open(terminal);
+    fitTerminal();
+    requestAnimationFrame(fitTerminal);
+    const response = await postApi({
+      sessionId,
+      action: 'terminal-open',
+      cols: xterm.cols,
+      rows: xterm.rows
+    });
+    if (!response.ok || !('pty' in response)) {
+      xterm.write(`\r\n${response.ok ? "无法启动终端" : response.error}\r\n`);
+      return;
+    }
+    // PATCH(2026-08-14): Windows 下后端返回友好错误（ok:true, pty.exited:true, id:""）
+    // —— 识别并显示提示文字，避免空终端 + 60ms 空轮询（terminalId="" 死循环）。
+    if (response.error !== void 0 || (response.pty.exited && response.pty.id === '')) {
+      xterm.write(`\r\n${response.error ?? "终端功能暂不可用"}\r\n`);
+      return;
+    }
+    terminalId = response.pty.id;
+    terminalSessionId = sessionId;
+    xterm.onData((data: string) => {
+      if (terminalId !== void 0 && terminalSessionId !== void 0) postApi({
+        sessionId: terminalSessionId,
+        action: 'terminal-input',
+        terminalId,
+        data
+      });
+    });
+    terminalPoll = window.setInterval(() => void pollTerminal(), 60);
+    await pollTerminal();
+  };
+  let fitAddon: FitAddon | undefined;
+  let resizeFrame: number | undefined;
+  const fitTerminal = () => {
+    if (terminal.hidden || xterm === void 0 || fitAddon === void 0) return;
+    fitAddon.fit();
+    const sessionId = terminalSessionId;
+    if (sessionId !== void 0 && terminalId !== void 0) postApi({
+      sessionId,
+      action: 'terminal-resize',
+      terminalId,
+      cols: xterm.cols,
+      rows: xterm.rows
+    });
+  };
   const terminalResizeObserver = new ResizeObserver(() => {
-    if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame)
-    resizeFrame = requestAnimationFrame(() => { resizeFrame = undefined; xterm?.clearSelection(); fitTerminal() })
-  })
-  terminalResizeObserver.observe(terminal)
-  let expanded = false
-  expand.onclick = () => { expanded = !expanded; panelWidth = expanded && conversationRoot !== null ? Math.floor(conversationRoot.clientWidth * 0.75) : defaultWidth; syncGrid(); expand.dataset.active = String(expanded) }
-  const load = async (sessionId: string, path: string, target: HTMLElement): Promise<void> => {
-    target.textContent = '加载中…'
-    const result = await api(sessionId, 'list', path)
-    if (!result.ok || !('entries' in result)) { target.textContent = result.ok ? '无数据' : result.error; return }
-    target.replaceChildren()
+    if (resizeFrame !== void 0) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = void 0;
+      xterm?.clearSelection();
+      fitTerminal();
+    });
+  });
+  terminalResizeObserver.observe(terminal);
+  let expanded = false;
+  let preExpandWidth = 0;
+  expand.onclick = () => {
+    expanded = !expanded;
+    if (expanded) {
+      preExpandWidth = panelWidth; // PATCH(2026-08-14v5): 记住展开前宽度
+      panelWidth = Math.floor(window.innerWidth * 0.6); // 展开 = 60% 视口（v4 上限）
+    } else {
+      panelWidth = preExpandWidth || defaultWidth; // 恢复用户原宽度
+    }
+    syncGrid();
+    expand.dataset.active = String(expanded);
+  };
+  const load = async (sessionId, path, target) => {
+    target.textContent = '加载中…';
+    const result = await api(sessionId, 'list', path);
+    if (!result.ok || !('entries' in result)) {
+      target.textContent = result.ok ? '无数据' : result.error;
+      return;
+    }
+    target.replaceChildren();
     for (const entry of result.entries) {
-      const row = button(entry.name, entry.kind === 'directory' ? '▸' : '')
-      row.dataset.searchText = entry.name.toLocaleLowerCase()
+      const row = button(entry.name, entry.kind === 'directory' ? '▸' : '');
+      row.dataset.searchText = entry.name.toLocaleLowerCase();
       if (entry.kind === 'directory') {
-        row.firstElementChild!.className = 'dfb-disclosure'
-        row.insertBefore(fileIcon(entry.name, true), row.lastElementChild)
-      } else {
-        row.firstElementChild!.replaceWith(fileIcon(entry.name))
-      }
-      row.oncontextmenu = event => { event.preventDefault(); void openContextMenu(entry, event.clientX, event.clientY) }
+        row.firstElementChild.className = 'dfb-disclosure';
+        row.insertBefore(fileIcon(entry.name, true), row.lastElementChild);
+      } else row.firstElementChild.replaceWith(fileIcon(entry.name));
+      row.oncontextmenu = (event) => {
+        event.preventDefault();
+        openContextMenu(entry, event.clientX, event.clientY);
+      };
       if (entry.kind === 'directory') {
-        const children = document.createElement('div'); children.className = 'dfb-children'; children.hidden = true; children.dataset.expanded = 'false'
-        let loaded = false
+        const children = document.createElement('div');
+        children.className = 'dfb-children';
+        children.hidden = true;
+        children.dataset.expanded = 'false';
+        let loaded = false;
         row.onclick = () => {
-          const expanded = children.dataset.expanded !== 'true'; children.dataset.expanded = String(expanded); children.hidden = !expanded; row.firstElementChild!.textContent = expanded ? '▾' : '▸'
-          if (!loaded) { loaded = true; void load(sessionId, entry.path, children) }
-        }
-        target.append(row, children)
+          const expanded = children.dataset.expanded !== 'true';
+          children.dataset.expanded = String(expanded);
+          children.hidden = !expanded;
+          row.firstElementChild.textContent = expanded ? '▾' : '▸';
+          if (!loaded) {
+            loaded = true;
+            load(sessionId, entry.path, children);
+          }
+        };
+        target.append(row, children);
       } else {
-        row.onclick = async () => {
-          currentPath.textContent = entry.path
-          tabButtons.get('files')!.firstElementChild!.textContent = entry.name; preview.innerHTML = '<div class="dfb-empty">正在读取…</div>'
-          const response = await api(sessionId, 'preview', entry.path)
-          if (!response.ok || !('preview' in response)) { renderPreviewMessage(preview, '无法预览文件', response.ok ? '服务端没有返回文件内容。' : response.error, '⚠'); return }
-          renderPreview(preview, response.preview, async contentValue => { const saved = await postApi({ sessionId, action: 'write', path: entry.path, content: contentValue }); if (!saved.ok) throw new Error(saved.error) })
-        }
-        target.append(row)
+        // PATCH(2026-08-14v6): 文件树条目点击统一走 openFile（文件 tab 栈）
+        row.onclick = () => {
+          openFile(entry.path);
+        };
+        target.append(row);
       }
     }
-  }
-  refreshTree.onclick = () => { const sessionId = currentSession(); if (sessionId !== undefined) void load(sessionId, '', tree) }
-  toggleTree.onclick = () => { body.dataset.tree = String(body.dataset.tree !== 'true') }
-  const open = (): void => {
-    const wasHidden = root.hidden
-    root.hidden = false; browserTab?.setAttribute('aria-selected', 'true')
-    if (wasHidden) scheduleFeatureLabel(activeKind)
-    syncGrid()
-    const sessionId = currentSession()
-    if (sessionId === undefined) { tree.textContent = '当前没有打开的会话'; return }
-    if (loadedSession !== sessionId) { loadedSession = sessionId; tabButtons.get('files')!.firstElementChild!.textContent = '文件'; preview.innerHTML = '<div class="dfb-empty">从文件树选择文件</div>'; void load(sessionId, '', tree) }
-  }
-  const openFile = async (path: string): Promise<void> => {
-    open()
-    const sessionId = currentSession()
-    if (sessionId === undefined) return
-    selectKind('files'); currentPath.textContent = path; tabButtons.get('files')!.firstElementChild!.textContent = path.split('/').at(-1) ?? path; preview.innerHTML = '<div class="dfb-empty">正在读取…</div>'
-    const response = await api(sessionId, 'preview', path)
-    if (!response.ok || !('preview' in response)) { renderPreviewMessage(preview, '无法预览文件', response.ok ? '服务端没有返回文件内容。' : response.error, '⚠'); return }
-    renderPreview(preview, response.preview, async contentValue => { const saved = await postApi({ sessionId, action: 'write', path, content: contentValue }); if (!saved.ok) throw new Error(saved.error) })
-  }
-  const closePanel = (): void => {
-    root.hidden = true; browserTab?.setAttribute('aria-selected', 'false')
-    stopFeatureLabels(true)
-    if (conversationRoot !== null) conversationRoot.style.gridTemplateColumns = 'minmax(0, 1fr) 0px'
-  }
-  close.onclick = closePanel
-  const key = (event: KeyboardEvent): void => { if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'e') { event.preventDefault(); root.hidden ? open() : closePanel() } }
-  window.addEventListener('keydown', key)
-  return { root, openFile, dispose() { window.removeEventListener('keydown', key); document.removeEventListener('pointerdown', dismissMenus); stopFeatureLabels(true); if (searchTimer !== undefined) window.clearTimeout(searchTimer); if (terminalPoll !== undefined) window.clearInterval(terminalPoll); if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame); terminalResizeObserver.disconnect(); themeObserver.disconnect(); for (const [host, editor] of activeEditors) { if (root.contains(host)) { editor.view.destroy(); activeEditors.delete(host) } } const sessionId = terminalSessionId; if (sessionId !== undefined && terminalId !== undefined) void postApi({ sessionId, action: 'terminal-close', terminalId }); xterm?.dispose(); tabObserver.disconnect(); if (browserTabWhale !== null) removeFishLogo(browserTabWhale); browserTab?.remove(); contextMenu.remove(); addMenu.remove(); restoreConversationLayout(); root.remove(); style.remove() } }
+  };
+  refreshTree.onclick = () => {
+    const sessionId = currentSession();
+    if (sessionId !== void 0) load(sessionId, '', tree);
+  };
+  toggleTree.onclick = () => {
+    body.dataset.tree = String(body.dataset.tree !== 'true');
+  };
+  const open = () => {
+    const wasHidden = root.hidden;
+    root.hidden = false;
+    browserTab?.setAttribute('aria-selected', 'true');
+    if (wasHidden) scheduleFeatureLabel(activeKind);
+    // PATCH(2026-08-14v4): 挤压由 center 列 padding-right 承担。
+    syncGrid();
+    const sessionId = currentSession();
+    if (sessionId === void 0) {
+      tree.textContent = '当前没有打开的会话';
+      return;
+    }
+    if (loadedSession !== sessionId) {
+      loadedSession = sessionId;
+      tabButtons.get('files').firstElementChild.textContent = '文件';
+      preview.innerHTML = '<div class="dfb-empty">从文件树选择文件</div>';
+      load(sessionId, '', tree);
+    }
+  };
+  // PATCH(2026-08-14v6d): 树单例跨 tab 移动时保持滚动位置（强制 reflow 后再恢复）
+  const moveTreeTo = (target) => {
+    if (treePane.parentElement === target) return;
+    const st = tree.scrollTop;
+    target.append(treePane);
+    void treePane.offsetHeight; // 强制同步 reflow，让布局先稳定
+    tree.scrollTop = st;
+    requestAnimationFrame(() => {
+      tree.scrollTop = st; // 双保险：下一帧布局稳定后再次恢复
+    });
+  };
+  // PATCH(2026-08-14v6h): 显示文件功能视图（树），但不复活「文件」功能 tab
+  const showFilesView = () => {
+    if (activeFileTab !== null) {
+      const prev = fileTabs.get(activeFileTab);
+      if (prev !== void 0) {
+        prev.view.hidden = true;
+        prev.tabBtn.dataset.active = 'false';
+      }
+      activeFileTab = null;
+    }
+    activeKind = 'files';
+    for (const [key, view] of views) view.hidden = key !== 'files';
+    for (const [key, tab] of tabButtons) tab.dataset.active = 'false';
+    moveTreeTo(body);
+  };
+  // PATCH(2026-08-14v6): 激活指定文件 tab（隐藏功能视图，显示目标文件）
+  const activateFileTab = (id) => {
+    const ft = fileTabs.get(id);
+    if (ft === void 0 || activeFileTab === id) return;
+    if (activeFileTab !== null) {
+      const prev = fileTabs.get(activeFileTab);
+      if (prev !== void 0) {
+        prev.view.hidden = true;
+        prev.tabBtn.dataset.active = 'false';
+      }
+    }
+    activeFileTab = id;
+    for (const [key, view] of views) view.hidden = true;
+    for (const [key, tab] of tabButtons) tab.dataset.active = 'false';
+    ft.view.hidden = false;
+    ft.tabBtn.dataset.active = 'true';
+    // PATCH(2026-08-14v6g): tab 与会话绑定 —— 树切到 tab 所属工作区
+    if (ft.sessionId !== currentSession()) {
+      loadedSession = ft.sessionId;
+      if (ft.sessionId !== void 0) load(ft.sessionId, '', tree);
+    }
+    // PATCH(2026-08-14v6b): 树单例跟随激活的文件 tab（保持滚动）
+    moveTreeTo(ft.view);
+  };
+  // PATCH(2026-08-14v6): 关闭文件 tab（silent 用于批量清理，不切换视图）
+  const closeFileTab = (id, silent = false) => {
+    const ft = fileTabs.get(id);
+    if (ft === void 0) return;
+    ft.view.remove();
+    ft.tabBtn.remove();
+    fileTabs.delete(id);
+    if (activeFileTab === id) {
+      activeFileTab = null;
+      if (!silent) selectKind('files');
+    }
+    // PATCH(2026-08-14v6b): 关闭最后一个文件 tab，树单例移回 filesView（保持滚动）
+    if (fileTabs.size === 0) moveTreeTo(body);
+  };
+  const openFile = async (path) => {
+    open();
+    const sessionId = currentSession();
+    if (sessionId === void 0) return;
+    // 查重：同 path 已打开 → 激活已有 tab
+    for (const [id, ft] of fileTabs) {
+      if (ft.path === path) {
+        activateFileTab(id);
+        return;
+      }
+    }
+    // 新建文件 tab（独立 preview，Codex 式多文件）
+    const id = `file-${++fileTabSeq}`;
+    const base = (path.split('/').at(-1) ?? path).split('\\').at(-1) ?? path;
+    const view = document.createElement('div');
+    view.className = 'dfb-body dfb-view';
+    view.dataset.tree = 'true';
+    const tpreview = document.createElement('div');
+    tpreview.className = 'dfb-preview';
+    tpreview.innerHTML = '<div class="dfb-empty">正在读取…</div>';
+    view.append(tpreview);
+    content.append(view);
+    const tabBtn = document.createElement('button');
+    tabBtn.type = 'button';
+    tabBtn.className = 'dfb-panel-tab';
+    tabBtn.dataset.active = 'false';
+    const label = document.createElement('span');
+    label.textContent = base;
+    const closeTab = document.createElement('span');
+    closeTab.textContent = '　×';
+    closeTab.title = '关闭文件';
+    closeTab.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      closeFileTab(id);
+    };
+    tabBtn.append(label, closeTab);
+    tabBtn.onclick = () => activateFileTab(id);
+    panelTabs.append(tabBtn);
+    fileTabs.set(id, { path, sessionId, title: base, tabBtn, view, preview: tpreview });
+    // PATCH(2026-08-14v6c): 打开第一个文件后隐藏「文件」功能 tab（树已随文件 tab 走）
+    if (fileTabs.size === 1) {
+      openKinds.delete('files');
+      const ftab = tabButtons.get('files');
+      if (ftab !== void 0) ftab.hidden = true;
+    }
+    activateFileTab(id);
+    // 加载文件内容
+    const response = await api(sessionId, 'preview', path);
+    if (!response.ok || !('preview' in response)) {
+      renderPreviewMessage(tpreview, '无法预览文件', response.ok ? '服务端没有返回文件内容。' : response.error, '⚠');
+      return;
+    }
+    renderPreview(tpreview, response.preview, async (contentValue: string) => {
+      const saved = await postApi({
+        sessionId,
+        action: 'write',
+        path,
+        content: contentValue
+      });
+      if (!saved.ok) throw new Error(saved.error);
+    });
+  };
+  const closePanel = () => {
+    root.hidden = true;
+    browserTab?.setAttribute('aria-selected', 'false');
+    stopFeatureLabels(true);
+    // PATCH(2026-08-14v4): 恢复官方 center 列 padding（挤压释放）。
+    restoreConversationLayout();
+  };
+  close.onclick = closePanel;
+  const key = (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'e') {
+      event.preventDefault();
+      root.hidden ? open() : closePanel();
+    }
+  };
+  window.addEventListener('keydown', key);
+  return {
+    root,
+    openFile,
+    dispose() {
+      window.removeEventListener('keydown', key);
+      document.removeEventListener('pointerdown', dismissMenus);
+      stopFeatureLabels(true);
+      if (searchTimer !== void 0) window.clearTimeout(searchTimer);
+      if (terminalPoll !== void 0) window.clearInterval(terminalPoll);
+      if (resizeFrame !== void 0) cancelAnimationFrame(resizeFrame);
+      terminalResizeObserver.disconnect();
+      themeObserver.disconnect();
+      for (const [host, editor] of activeEditors) if (root.contains(host)) {
+        editor.view.destroy();
+        activeEditors.delete(host);
+      }
+      const sessionId = terminalSessionId;
+      if (sessionId !== void 0 && terminalId !== void 0) postApi({
+        sessionId,
+        action: 'terminal-close',
+        terminalId
+      });
+      xterm?.dispose();
+      tabObserver.disconnect();
+      unsubSessions();
+      if (browserTabWhale !== null) removeFishLogo(browserTabWhale);
+      browserTab?.remove();
+      contextMenu.remove();
+      addMenu.remove();
+      restoreConversationLayout();
+      root.remove();
+      style.remove();
+    }
+  };
 }
 
 export function apply(ctx: ClientContext): void {

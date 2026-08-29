@@ -1,4 +1,10 @@
 interface ClientContext {
+    sessions: {
+        list: {
+            getSnapshot(): { current?: string };
+            subscribe(listener: () => void): () => void;
+        };
+    };
     workspaces: {
         openPath(path: string): Promise<void>;
     };

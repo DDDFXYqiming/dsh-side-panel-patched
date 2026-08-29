@@ -9,7 +9,7 @@ Local enhancement fork of the DSH Web right-side workspace panel (file browser /
 
 ## Enhancements (vs upstream v0.2.0)
 
-Implementation details live inside the source as `PATCH(2026-08-14)` markers and in CHANGELOG.md / git log; high-level: independent panel mount (no dependency on the official `details` column, bypasses the 520px width cap, `position: fixed` on the right with a 420px ~ 60% viewport draggable width, width persisted); 44px title + 28px tabs header pixel-aligned with the official UI; Codex-style spindle drag handle; Windows terminal safety (friendly error instead of spawning on unsupported paths, error handlers on every spawn, single-command mode uses `cmd.exe /c`); `ctx.layout` service declaration backfilled; maximize button toggles between 60% viewport and full width without losing the drag value; multi-file tab stack (tree singleton follows the active tab, scroll position preserved across tabs, first file auto-hides the `Files` feature tab, tabs are grouped per session / workspace and never cross-contaminate).
+Implementation details live inside the source as `PATCH(2026-08-14)` markers and in CHANGELOG.md / git log; high-level: independent panel mount (no dependency on the official `details` column, bypasses the 520px width cap, `position: fixed` on the right with a 420px ~ 60% viewport draggable width, width persisted); 44px title + 28px tabs header pixel-aligned with the official UI; Codex-style spindle drag handle; Windows terminal safety (friendly error instead of spawning on unsupported paths, error handlers on every spawn, single-command mode uses `cmd.exe /c`); `ctx.sessions` / `ctx.workspaces` service injection declarations backfilled (session-switch tracking, per-session file tab grouping); maximize button toggles between 60% viewport and full width without losing the drag value; multi-file tab stack (tree singleton follows the active tab, scroll position preserved across tabs, first file auto-hides the `Files` feature tab, tabs are grouped per session / workspace and never cross-contaminate).
 
 ## Install
 
@@ -22,7 +22,7 @@ dsh plugin --profile web add <repo dir>
 
 ## Distribution shape
 
-- This package **only ships prebuilt output** (`lib/` is the build output, the repo has no `src/` / `tsconfig.json`) — the `prepare` script only checks output presence; `npm pack` and GitHub installs both pass (publish.md compatibility path)
+- This package **ships prebuilt output** (`lib/` is the build output; `src/` + `tsconfig.json` are the source of truth, `npm run build` = host + client → `lib/`) — the `prepare` script only checks output presence; `npm pack` and GitHub installs both pass (publish.md compatibility path)
 - The scoped package is configured with `publishConfig.access: public`; all frontend dependencies (codemirror / xterm / etc.) are inlined into the bundle and declared under `devDependencies` (build-time only)
 - Default config is provided by the plugin's built-in Schemastery `Config` (`maxTextBytes` / `maxImageBytes` / `searchMaxResults`); `cordis.patch.yml` no longer carries defaults
 - `/side-panel/api` enforces a Host/Origin loopback check (only `127.0.0.1` / `localhost` / `[::1]` are accepted)
