@@ -37,9 +37,9 @@ dsh plugin --profile web add <repo dir>
 
 ## Distribution shape
 
-- The plugin loads `lib/`, and the package ships prebuilt output. `src/` and `tsconfig.json` are the single source of truth, and `npm run build` builds host and client into `lib/`. The `prepare` script only checks that the output exists, so both `npm pack` and GitHub installs pass
+- The plugin loads `lib/`, and the package ships prebuilt output. `src/` and `tsconfig.json` are the single source of truth, and `npm run build` builds host and client into `lib/` (the host file is transpiled through typescript to strip types). The `prepare` script runs the full `build + check`, so `npm pack` and GitHub installs rebuild `lib/`; on the first pnpm >= 10 git install, add the printed package key under `allowBuilds:` in the profile's `pnpm-workspace.yaml`
 - The scoped package sets `publishConfig.access: public`. All frontend dependencies (codemirror / xterm / etc.) are inlined into the bundle and declared under `devDependencies` (build-time only)
-- Config defaults come from the plugin's built-in Schemastery `Config` (`maxTextBytes` / `maxImageBytes` / `searchMaxResults`), and `cordis.patch.yml` no longer carries defaults
+- Config defaults come from the plugin's built-in Schemastery `Config` (`maxTextBytes` / `maxImageBytes` / `searchMaxResults` / `terminalTimeoutMs` / `searchNodeBudget`), and `cordis.patch.yml` no longer carries defaults
 - `/side-panel/api` enforces a Host / Origin loopback check that only accepts `127.0.0.1` / `localhost` / `[::1]`
 
 ## Known limits

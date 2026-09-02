@@ -37,9 +37,9 @@ dsh plugin --profile web add <本目录>
 
 ## 发布形态
 
-- 插件实际加载 `lib/`，本包以预构建产物分发。`src/` 与 `tsconfig.json` 是唯一的源码，`npm run build` 把 host 和 client 一起构建进 `lib/`。`prepare` 脚本只做产物存在性自检，`npm pack` 和 GitHub 安装都能通过
+- 插件实际加载 `lib/`，本包以预构建产物分发。`src/` 与 `tsconfig.json` 是唯一的源码，`npm run build` 把 host 和 client 一起构建进 `lib/`（host 侧经 typescript 转译擦类型）。`prepare` 脚本运行完整 `build + check`，`npm pack` 和 GitHub 安装都会重新产出 `lib/`；pnpm ≥10 首次 git 安装需在 profile 的 `pnpm-workspace.yaml` 放行：`allowBuilds:` 下加入 pnpm 打印的本包键
 - scoped 包已配置 `publishConfig.access: public`。所有前端依赖（codemirror / xterm 等）都内联进 bundle，声明在 `devDependencies` 里，只在构建期使用
-- 配置默认值由插件内的 Schemastery `Config` 提供（`maxTextBytes` / `maxImageBytes` / `searchMaxResults`），`cordis.patch.yml` 不再携带默认值
+- 配置默认值由插件内的 Schemastery `Config` 提供（`maxTextBytes` / `maxImageBytes` / `searchMaxResults` / `terminalTimeoutMs` / `searchNodeBudget`），`cordis.patch.yml` 不再携带默认值
 - `/side-panel/api` 加了 Host / Origin 回环校验，只接受 `127.0.0.1` / `localhost` / `[::1]` 来源
 
 ## 已知边界

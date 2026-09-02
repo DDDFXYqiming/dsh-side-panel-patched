@@ -1,0 +1,4 @@
+# vitest/vite 的 dev 依赖；esbuild 的 postinstall 需要显式放行
+allowBuilds:
+  esbuild: true
+

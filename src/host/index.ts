@@ -1,5 +1,5 @@
 // dsh-side-panel host 端源码（v0.2.1，从 lib/index.js bundle 恢复）。
-// 源文件 = src/host/index.ts；lib/index.js 由 scripts/build-host.mjs 原样复制生成。
+// 源文件 = src/host/index.ts；lib/index.js 由 scripts/build-host.mjs 转译（擦类型，零语义改写）生成。
 // 修改请改本文件后运行 npm run build，勿直接编辑 lib/index.js。
 
 import { realpathSync } from "node:fs";
@@ -85,7 +85,9 @@ async function list(root, input) {
 		};
 	}))).sort((a, b) => a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "directory" ? -1 : 1);
 }
-async function search(root, input, limit) {
+const DEFAULT_SEARCH_NODE_BUDGET = 50000;
+const DEFAULT_TERMINAL_TIMEOUT_MS = 30000;
+async function search(root, input, limit, nodeBudget = DEFAULT_SEARCH_NODE_BUDGET) {
 	const query = input.trim().toLocaleLowerCase();
 	if (query === "") return {
 		matches: [],
@@ -94,11 +96,10 @@ async function search(root, input, limit) {
 	const matches = [];
 	const pending = [""];
 	let truncated = false;
-	// [spec-audit 2026-08-14] 遍历节点预算：防止巨型目录树（如整个磁盘）无限遍历
-	const NODE_BUDGET = 50000;
+	// [spec-audit 2026-08-14] 遍历节点预算：防止巨型目录树（如整个磁盘）无限遍历（Config: searchNodeBudget）
 	let visited = 0;
 	while (pending.length > 0) {
-		if (visited >= NODE_BUDGET) {
+		if (visited >= nodeBudget) {
 			truncated = true;
 			pending.length = 0;
 			break;
@@ -253,15 +254,24 @@ async function workspaceDiff(root) {
 }
 // [spec-audit 2026-08-14] 官方配置约定：导出 Schemastery Config——默认值单一来源，
 // 加载期校验 + 默认值填充（cordis.patch.yml 不再写默认值，见 basic/config.md）
-export const Config = Schema.object({
+export interface Config {
+	maxTextBytes: number;
+	maxImageBytes: number;
+	searchMaxResults: number;
+	terminalTimeoutMs: number;
+	searchNodeBudget: number;
+}
+export const Config: Schema<Config> = Schema.object({
 	maxTextBytes: Schema.number().default(2097152),
 	maxImageBytes: Schema.number().default(10485760),
-	searchMaxResults: Schema.number().default(200)
+	searchMaxResults: Schema.number().default(200),
+	terminalTimeoutMs: Schema.number().min(1000).default(DEFAULT_TERMINAL_TIMEOUT_MS),
+	searchNodeBudget: Schema.number().min(1000).default(DEFAULT_SEARCH_NODE_BUDGET)
 });
-function apply(ctx, config = {}) {
-	const maxText = config.maxTextBytes ?? 2097152;
-	const maxImage = config.maxImageBytes ?? 10485760;
-	const searchMaxResults = config.searchMaxResults ?? 200;
+function apply(ctx, config: Partial<Config> = {}) {
+	// 默认值唯一来源 = schema：加载期 Cordis 已填充；此处调用式校验对直调/测试的部分配置同样补齐。
+	// 调用式校验：schema 填充默认值（loader 层传入的已是完整 Config；测试/直调的 Partial 在此补齐）。
+	const { maxTextBytes: maxText, maxImageBytes: maxImage, searchMaxResults, terminalTimeoutMs, searchNodeBudget } = Config(config as Config);
 	const terminals = /* @__PURE__ */ new Map();
 	const turnGit = /* @__PURE__ */ new Map();
 	let nextTerminal = 0;
@@ -331,7 +341,7 @@ function apply(ctx, config = {}) {
 					});
 					if (action === "search") return json(res, 200, {
 						ok: true,
-						...await search(root, path, searchMaxResults)
+						...await search(root, path, searchMaxResults, searchNodeBudget)
 					});
 					if (action === "preview") return json(res, 200, {
 						ok: true,
@@ -502,7 +512,7 @@ function apply(ctx, config = {}) {
 								: ["/bin/bash", ["-lc", body.command]];
 							const result = await execFileAsync(shellBin, shellArgs, {
 								cwd: root,
-								timeout: 3e4,
+								timeout: terminalTimeoutMs,
 								maxBuffer: 2097152
 							});
 							return json(res, 200, {
