@@ -26,13 +26,17 @@ interface ClientContext {
       subscribe(listener: () => void): () => void
     }
   }
-  workspaces: {
-    openPath(path: string): Promise<void>
+  remote: {
+    session: {
+      openWorkspacePath(input: { path: string }): Promise<
+        { ok: true; value: { opened: true } } | { ok: false; error: { message: string } }
+      >
+    }
   }
   effect(callback: () => (() => void), label?: string): void
 }
 
-export const inject = ['sessions', 'workspaces']
+export const inject = ['sessions', 'remote', 'remote.session']
 
 const fishRoots = new Map<HTMLElement, Root>()
 
@@ -610,7 +614,17 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
   const root = document.createElement('aside');
   root.id = 'dsh-file-browser';
   root.hidden = true;
-  const hostWorkspaces = ctx.workspaces;
+  // PATCH(2026-09-02): dsh 0.1.2-alpha 移除了老代 ctx.workspaces.openPath
+  // （workspaces 服务现在是 WorkspaceController，无 openPath），改走官方 chat UI
+  // 同款的 session/openWorkspacePath wire 方法；host 端由 dsh-native-command 处理。
+  const openInFileManager = (path: string) => {
+    ctx.remote.session
+      .openWorkspacePath({ path })
+      .then((result) => {
+        if (!result.ok) console.error('side-panel openWorkspacePath failed', result.error.message);
+      })
+      .catch((error) => console.error('side-panel openWorkspacePath failed', error));
+  };
   let conversationRoot: HTMLElement | null = null;
   let sessionHeader = null;
   const widthKey = 'dsh.file-browser.width';
@@ -944,7 +958,7 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
     contextMenu.replaceChildren();
     const revealPath = entry.kind === 'directory' ? resolved.path : resolved.parentPath;
     contextMenu.append(action('📂  在文件管理器中打开', () => {
-      hostWorkspaces.openPath(revealPath).catch((error) => console.error('side-panel host.openPath failed', error));
+      openInFileManager(revealPath);
     }));
     const openWith = document.createElement('button');
     openWith.textContent = '　打开方式　›';
@@ -952,7 +966,7 @@ function createPanel(ctx: ClientContext): { root: HTMLElement; openFile(path: st
     submenu.className = 'dfb-menu dfb-submenu';
     submenu.hidden = true;
     submenu.append(action('VS Code', () => openBrowserProtocol(editorUri('vscode', resolved))), action('Cursor', () => openBrowserProtocol(editorUri('cursor', resolved))), action('默认应用', () => {
-      hostWorkspaces.openPath(resolved.path).catch((error) => console.error('side-panel host.openPath failed', error));
+      openInFileManager(resolved.path);
     }));
     openWith.onmouseenter = () => {
       submenu.hidden = false;
