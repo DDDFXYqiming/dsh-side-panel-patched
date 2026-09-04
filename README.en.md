@@ -14,7 +14,7 @@ Implementation details sit next to the `PATCH` markers in the source, and git lo
 - **Independent panel mount**. The panel mounts in its own anchor, bypassing the official details column and its 520px width cap. It sits on the right with `position:fixed`, drags between 420px and 60% of the viewport, and the chosen width persists
 - **Header matched to the official UI**. 44px title bar plus 28px tabs bar, pixel-tight
 - **Codex-style spindle drag handle**
-- **Windows terminal safety**. Unsupported paths return a friendly error without spawning a process, every spawn carries an error handler, and single-command mode goes through `cmd.exe /c`
+- **Native Windows terminal**. v0.2.1 uses optional `node-pty` ConPTY support for interactive input/output and live resizing. Single commands use hidden `cmd.exe /c`; Linux retains the `script` backend.
 - **`ctx.sessions` / `ctx.workspaces` service injection declarations backfilled**. Session switches are tracked, and file tabs group by session
 - **Terminal session ownership** (`PATCH(2026-08-27)`). The host validates every `terminal-*` action against `owner=sessionId`, so polling, input, resize and close are all bound to the session the terminal was opened in
 - **Maximize button** toggles between 60% viewport and full width, and the drag value survives
@@ -44,7 +44,7 @@ dsh plugin --profile web add <repo dir>
 
 ## Known limits
 
-- The terminal feature is unavailable on Windows because Unix PTYs do not exist there; supporting it would mean moving to ConPTY / node-pty
+- Windows interactive terminals require Windows 10 1809+ and the `node-pty` native component. Linux `script` terminals set their size on open only (`applied:false` for live resize).
 - The panel overlays the official `detailsCol`, so the official "tool-call details" panel is occluded
 - This is a browser-side plugin. Changes to `lib/client.js` need a hard reload to take effect, and changes to the Node-side `lib/index.js` need a host restart
 - `findFrameParts` locates the official layout with `[data-details-collapsed]` / `[class*="centerCol"]` (the hashed class suffix is stable). A DSH major upgrade that changes the structure will need a re-fit here

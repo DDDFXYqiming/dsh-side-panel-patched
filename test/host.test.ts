@@ -1,5 +1,6 @@
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -112,8 +113,9 @@ describe("inside — 符号链接逃逸", () => {
 		outside = mkdtempSync(join(tmpdir(), "spx-link-out-"));
 		mkdirSync(join(root, "real"));
 		try {
-			symlinkSync(join(root, "real"), join(root, "in-link"), "dir");
-			symlinkSync(outside, join(root, "out-link"), "dir");
+			const type = process.platform === "win32" ? "junction" : "dir";
+			symlinkSync(join(root, "real"), join(root, "in-link"), type);
+			symlinkSync(outside, join(root, "out-link"), type);
 			canSymlink = true;
 		} catch {
 			canSymlink = false;
@@ -124,11 +126,13 @@ describe("inside — 符号链接逃逸", () => {
 		rmSync(outside, { recursive: true, force: true });
 	});
 
-	it.skipIf(!canSymlink)("解析指向工作区内的符号链接", () => {
+	it("解析指向工作区内的符号链接", (ctx) => {
+		if (!canSymlink) ctx.skip();
 		expect(inside(root, "in-link").path).toBe("real");
 	});
 
-	it.skipIf(!canSymlink)("拒绝指向工作区外的符号链接", () => {
+	it("拒绝指向工作区外的符号链接", (ctx) => {
+		if (!canSymlink) ctx.skip();
 		expect(() => inside(root, "out-link")).toThrow("path is outside the configured workspace");
 	});
 });
@@ -144,10 +148,10 @@ describe("终端会话所有权与请求边界", () => {
 		rootB = mkdtempSync(join(tmpdir(), "spx-b-"));
 		h = harness({ "sess-a": { header: { cwd: rootA } }, "sess-b": { header: { cwd: rootB } } });
 	});
-	afterEach(() => {
+	afterEach(async () => {
 		h.dispose();
-		rmSync(rootA, { recursive: true, force: true });
-		rmSync(rootB, { recursive: true, force: true });
+		await rm(rootA, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+		await rm(rootB, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
 	});
 
 	it("拒绝不带 Origin 的变更请求（CSRF 兜底）", async () => {
@@ -168,7 +172,7 @@ describe("终端会话所有权与请求边界", () => {
 		expect(out.body.error).toBe("forbidden origin");
 	});
 
-	it.skipIf(isWin)("拒绝外部会话操作终端，接受属主会话", async () => {
+	it("拒绝外部会话操作终端，接受属主会话", async () => {
 		const opened = await h.call({ action: "terminal-open", sessionId: "sess-a" });
 		expect(opened.status).toBe(200);
 		const id = String((opened.body.pty as { id: string }).id);
@@ -176,9 +180,17 @@ describe("终端会话所有权与请求边界", () => {
 		const foreign = await h.call({ action: "terminal-input", sessionId: "sess-b", terminalId: id, data: "ls\r" });
 		expect(foreign.status).toBe(400);
 		expect(foreign.body.error).toBe("terminal is unavailable");
-		const own = await h.call({ action: "terminal-input", sessionId: "sess-a", terminalId: id, data: "ls\r" });
+		const own = await h.call({ action: "terminal-input", sessionId: "sess-a", terminalId: id, data: isWin ? "echo PTY-%OS%\r" : "printf 'PTY-%s\\n' linux\r" });
 		expect(own.status).toBe(200);
 		expect(own.body.accepted).toBe(true);
+		let output = "";
+		await expect.poll(async () => {
+			const read = await h.call({ action: "terminal-read", sessionId: "sess-a", terminalId: id });
+			output += (read.body.pty as { output: string }).output;
+			return output;
+		}, { timeout: 10000 }).toContain(isWin ? "PTY-Windows_NT" : "PTY-linux");
+		const resize = await h.call({ action: "terminal-resize", sessionId: "sess-a", terminalId: id, cols: 100, rows: 30 });
+		expect(resize.body.applied).toBe(isWin);
 		const closed = await h.call({ action: "terminal-close", sessionId: "sess-a", terminalId: id });
 		expect(closed.status).toBe(200);
 	});

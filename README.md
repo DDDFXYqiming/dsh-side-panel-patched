@@ -14,7 +14,7 @@ DSH Web 右侧工作区面板（文件浏览器 / Git 审查 / 终端）的本�
 - **独立面板挂载**。面板放进自己的挂载点，绕开了官方 details 列和 520px 宽度上限。它用 `position:fixed` 停在右侧，宽度能在 420px ~ 60% 视口之间拖拽，拖出来的宽度会持久保存
 - **头部尺寸与官方界面一致**。标题栏 44px，tabs 栏 28px，像素级贴合
 - **Codex 风格梭形拖拽把手**
-- **Windows 终端防护**。不支持的场景直接返回友好错误，不去 spawn；每次 spawn 都挂了 error 处理；单命令模式走 `cmd.exe /c`
+- **Windows 原生终端**。v0.2.1 使用可选依赖 `node-pty` 的 ConPTY 支持交互输入、输出和实时调整尺寸；单命令模式走隐藏窗口的 `cmd.exe /c`。Linux 保留 `script` PTY，运行期尺寸调整仍返回 `applied:false`。
 - **`ctx.sessions` / `ctx.workspaces` 服务注入声明补齐**。会话切换能被跟踪，文件 tab 按会话分组
 - **终端会话归属**（`PATCH(2026-08-27)`）。宿主按 `owner=sessionId` 校验所有 `terminal-*` 动作，轮询、输入、缩放、关闭都绑定打开终端时的那个会话
 - **放大按钮**在 60% 视口与全宽之间切换，拖拽出的宽度保留
@@ -27,6 +27,8 @@ DSH Web 右侧工作区面板（文件浏览器 / Git 审查 / 终端）的本�
 - 实现入口在 `lib/client.js` 的 `dfbRenderMarkdown` / `markdownCss` / `dfbRenderMermaidBlocks`。`src/` 是源码，`npm run build` 由 `src/host` 与 `src/client` 构建出 `lib/`
 
 ## 安装
+
+v0.2.1 已针对 DSH `0.1.2-rc.1` 验证。Windows 需要支持 ConPTY 的系统（Windows 10 1809+）及 `node-pty` 原生组件；Linux 使用 `script`、`stty` 和 Bash。`pnpm test` 同时覆盖终端实际命令输出、归属校验和目录链接边界。
 
 ```bash
 # 从 GitHub 安装（推荐）
@@ -44,7 +46,7 @@ dsh plugin --profile web add <本目录>
 
 ## 已知边界
 
-- 终端功能在 Windows 上不可用，根源是 Unix PTY 限制，要支持得改用 ConPTY / node-pty
+- Windows 交互终端需要 `node-pty` 的 ConPTY 原生组件；Linux `script` 后端只在启动时设置尺寸。
 - 面板覆盖官方 detailsCol，官方「工具调用详情」面板会被挡住
 - 这是浏览器端插件。改了 `lib/client.js` 需要强刷页面生效；Node 端 `lib/index.js` 的改动需要重启宿主
 - `findFrameParts` 用 `[data-details-collapsed]` / `[class*="centerCol"]` 定位官方布局，hash class 后缀是稳定的。DSH 大版本升级如果改了结构，这里要重新适配
